@@ -1,7 +1,7 @@
 # 🎤 NASKAH PRESENTASI ORACLE DBA - NTT PLAYGROUND
 
 > **Versi:** 15 Menit + Demo Hands-On  
-> **Environment:** NTT Playground Docker Stack  
+> **Environment:** NTT Playground Docker Stack (Apple Silicon Compatible)  
 > **Format:** Script presentasi dengan panduan eksekusi real-time
 
 ---
@@ -10,7 +10,7 @@
 
 ### Start Environment (5 menit sebelum presentasi):
 ```bash
-cd ntt_playground
+cd ~/github/NTT_Playground
 ./start.sh
 ```
 
@@ -19,19 +19,25 @@ cd ntt_playground
 docker-compose ps
 ```
 
+### Setup Terminal
+- **Terminal 1**: Presentasi (jalankan command)
+- **Terminal 2**: Oracle logs (`docker-compose logs -f oracle-primary`)
+- **Terminal 3**: Testing (opsional)
+
 ---
 
 # 1️⃣ OPENING (30 detik)
 
-**🗣️ "Assalamualaikum, selamat pagi/siang. Perkenalkan saya [Nama].**  
+**🗣️ "Assalamualaikum, selamat pagi/siang. Perkenalkan saya [Nama].**
+
 **Hari ini saya akan mempresentasikan pemahaman saya tentang Oracle Database Architecture, Data Guard, SQL Server, Linux DBA Tasks, dan hands-on SQL query.**
 
 **Untuk demo hari ini, saya sudah menyiapkan environment Docker yang berisi:**
 - Oracle Database Primary & Standby
-- SQL Server 2022
-- Linux DBA Tools dengan Oracle Client
+- SQL Server 2022  
+- Linux DBA Tools (lightweight container)
 
-**Ini akan memungkinkan saya untuk demonstrasi langsung sambil menjelaskan konsep.**"
+**Environment ini optimized untuk Apple Silicon dengan image yang 90% lebih ringan.**"
 
 ---
 
@@ -60,18 +66,18 @@ docker-compose ps
 
 ### 🖥️ DEMO: Cek Memory Structure
 ```bash
-# Masuk ke DBA Tools container
-docker-compose exec dba-tools bash
+# Connect langsung ke oracle-primary container
+docker-compose exec oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba
 
-# Connect ke Oracle
-sqlplus app_user/app_pass123@ORACLE_PRIMARY
-
-# Jalankan query monitoring
-@/dba-scripts/01_architecture_monitoring.sql
+# Di SQL*Plus, jalankan:
+SELECT name, value/1024/1024 as size_mb FROM v$sga;
+SELECT pool, name, bytes/1024/1024 as size_mb FROM v$sgastat WHERE pool IS NOT NULL;
 ```
 
 **🎯 Penjelasan sambil nunjuk output:**  
 **🗣️ "Ini kita bisa lihat SGA components dan ukurannya. Buffer Cache paling besar karena itu yang sering diakses."**
+
+Ketik `EXIT` untuk keluar.
 
 ---
 
@@ -86,12 +92,9 @@ sqlplus app_user/app_pass123@ORACLE_PRIMARY
 - **ARCn** (Archiver) → mengarsipkan redo log kalau archive mode aktif"
 
 ### 🖥️ DEMO: Lihat Background Processes
-```sql
--- Di SQL*Plus, jalankan:
-SELECT pname, spid, program 
-FROM v$process 
-WHERE pname IS NOT NULL 
-ORDER BY pname;
+```bash
+# Connect dan query
+docker-compose exec oracle-primary bash -c "echo 'SELECT pname, spid, program FROM v\$process WHERE pname IS NOT NULL ORDER BY pname;' | sqlplus -S sys/oracle@XEPDB1 as sysdba"
 ```
 
 **🎯 Penjelasan:**  
@@ -110,20 +113,18 @@ ORDER BY pname;
 - **Flashback Logs** → buat fitur flashback database"
 
 ### 🖥️ DEMO: Lihat Physical Files
-```sql
--- Datafiles
-SELECT file_name, tablespace_name, bytes/1024/1024 as size_mb 
-FROM dba_data_files;
+```bash
+# Datafiles
+docker-compose exec oracle-primary bash -c "echo 'SELECT file_name, tablespace_name, bytes/1024/1024 as size_mb FROM dba_data_files;' | sqlplus -S sys/oracle@XEPDB1 as sysdba"
 
--- Control files
-SELECT name FROM v$controlfile;
+# Control files
+docker-compose exec oracle-primary bash -c "echo 'SELECT name FROM v\$controlfile;' | sqlplus -S sys/oracle@XEPDB1 as sysdba"
 
--- Redo logs
-SELECT group#, sequence#, bytes/1024/1024 as size_mb, status 
-FROM v$log;
+# Redo logs
+docker-compose exec oracle-primary bash -c "echo 'SELECT group#, sequence#, bytes/1024/1024 as size_mb, status FROM v\$log;' | sqlplus -S sys/oracle@XEPDB1 as sysdba"
 
--- Archive mode
-SELECT log_mode, open_mode FROM v$database;
+# Archive mode
+docker-compose exec oracle-primary bash -c "echo 'SELECT log_mode, open_mode FROM v\$database;' | sqlplus -S sys/oracle@XEPDB1 as sysdba"
 ```
 
 **🎯 Kalimat Kunci:**  
@@ -147,7 +148,7 @@ SELECT log_mode, open_mode FROM v$database;
 2. Perubahan dicatat di **Redo Buffer**
 3. **LGWR** tulis ke **Online Redo Log**
 4. Proses **LNS** (Log Network Server) kirim redo ke standby
-5. Di standby, **RFS** (Remote File Server) terima data
+5. Di sisi standby, **RFS** (Remote File Server) terima data
 6. Disimpan di **Standby Redo Log**
 7. **MRP** (Managed Recovery Process) apply ke standby database"
 
@@ -161,13 +162,13 @@ SELECT log_mode, open_mode FROM v$database;
 
 ### 🖥️ DEMO: Cek Primary & Standby
 ```bash
-# Cek Primary
-docker-compose exec dba-tools sqlplus sys/oracle@ORACLE_PRIMARY as sysdba
-SELECT database_role, open_mode FROM v$database;
+# Check Primary
+docker-compose exec oracle-primary bash -c "echo 'SELECT database_role, open_mode FROM v\$database;' | sqlplus -S sys/oracle@XEPDB1 as sysdba"
+# Output: PRIMARY - READ WRITE
 
-# Cek Standby (di terminal lain)
-docker-compose exec dba-tools sqlplus sys/oracle@ORACLE_STANDBY as sysdba
-SELECT database_role, open_mode FROM v$database;
+# Check Standby (di terminal lain)
+docker-compose exec oracle-standby bash -c "echo 'SELECT database_role, open_mode FROM v\$database;' | sqlplus -S sys/oracle@XEPDB1 as sysdba"
+# Output: PHYSICAL STANDBY - MOUNTED
 ```
 
 **🎯 Kalimat Kunci:**  
@@ -191,17 +192,8 @@ SELECT database_role, open_mode FROM v$database;
 
 ### 🖥️ DEMO: Perbandingan SQL Server
 ```bash
-# Connect ke SQL Server
-docker-compose exec dba-tools /opt/mssql-tools/bin/sqlcmd \
-  -S sqlserver -U sa -P SqlServer2022! -d NTTPlayground
-
-# Cek database files
-SELECT 
-  name, physical_name, 
-  size * 8 / 1024 as size_mb,
-  type_desc
-FROM sys.master_files
-WHERE database_id = DB_ID('NTTPlayground');
+# Cek database files di SQL Server
+docker-compose exec sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P SqlServer2022! -Q "SELECT name, physical_name, size*8/1024 as size_mb, type_desc FROM sys.master_files WHERE database_id = DB_ID('NTTPlayground')"
 ```
 
 **🎯 Penjelasan:**  
@@ -223,14 +215,14 @@ Command yang sering dipakai:"
 
 ### 🖥️ DEMO: Disk Monitoring
 ```bash
-# Masuk ke DBA Tools
+# Masuk ke DBA Tools (lightweight container)
 docker-compose exec dba-tools bash
 
 # Cek disk usage
 df -h
 
 # Cek ukuran direktori
-du -sh /oracle-data
+du -sh /
 
 # Atau jalankan script monitoring lengkap
 ./scripts/dba-daily-tasks.sh
@@ -244,11 +236,11 @@ du -sh /oracle-data
 
 ### 🖥️ DEMO: Process Monitoring
 ```bash
-# Oracle processes
-ps -ef | grep ora_
+# Oracle processes (dari dba-tools container)
+ps -ef | grep -E "(oracle|sql)"
 
-# Atau pakai top/htop
-top
+# Atau dari host
+docker-compose exec oracle-primary ps -ef | grep ora_
 ```
 
 ---
@@ -259,7 +251,7 @@ top
 
 ### 🖥️ DEMO: Listener & Logs
 ```bash
-# Cek listener (di container oracle)
+# Cek listener (dari oracle container)
 docker-compose exec oracle-primary lsnrctl status
 
 # Monitor alert log
@@ -273,81 +265,40 @@ docker-compose exec oracle-primary tail -f /opt/oracle/diag/rdbms/xe/XE/trace/al
 
 # 6️⃣ HANDS-ON SQL QUERY (3 menit)
 
-**🗣️ "Sekarang saya demonstrasikan basic SQL operation yang biasa dilakukan DBA."**
+**🗣️ "Sekarang saya demonstrasikan basic SQL operation yang biasa dilakukan DBA.**
+
+**Catatan: Tables ada di schema SYS, jadi query dengan prefix sys.table_name**"
 
 ---
 
-## 🔹 Create Table
+## 🔹 SELECT Data
 
-**🗣️ "Pertama, create table untuk data karyawan:**"
+**🗣️ "Query data dari table employees:**"
 
-### 🖥️ DEMO: Create Table
-```sql
--- Connect sebagai app_user
-sqlplus app_user/app_pass123@ORACLE_PRIMARY
+### 🖥️ DEMO: Select
+```bash
+# Select all (gunakan sys prefix)
+docker-compose exec oracle-primary bash -c "echo 'SELECT * FROM sys.employees;' | sqlplus -S sys/oracle@XEPDB1 as sysdba"
 
--- Create table
-CREATE TABLE employees_demo (
-  emp_id NUMBER PRIMARY KEY,
-  emp_name VARCHAR2(100),
-  salary NUMBER,
-  dept_id NUMBER
-);
+# Select dengan condition
+docker-compose exec oracle-primary bash -c "echo 'SELECT emp_name, salary FROM sys.employees WHERE salary > 7000000;' | sqlplus -S sys/oracle@XEPDB1 as sysdba"
 ```
 
 ---
 
-## 🔹 Insert Data
-
-**🗣️ "Insert data sample:**"
-
-### 🖥️ DEMO: Insert
-```sql
-INSERT INTO employees_demo VALUES (1, 'Rafi', 8000000, 10);
-INSERT INTO employees_demo VALUES (2, 'Budi', 7500000, 10);
-INSERT INTO employees_demo VALUES (3, 'Ani', 6500000, 20);
-COMMIT;
-```
-
----
-
-## 🔹 Select & Update
-
-**🗣️ "Query data dan update:**"
-
-### 🖥️ DEMO: Select & Update
-```sql
--- Select all
-SELECT * FROM employees_demo;
-
--- Select dengan condition
-SELECT emp_name, salary 
-FROM employees_demo 
-WHERE salary > 7000000;
-
--- Update salary
-UPDATE employees_demo 
-SET salary = salary + 1000000 
-WHERE emp_id = 1;
-COMMIT;
-```
-
----
-
-## 🔹 Join 3 Tables
+## 🔹 JOIN 3 Tables
 
 **🗣️ "Contoh join 3 tables - employees, departments, locations:**"
 
-### 🖥️ DEMO: Join (Pakai Data yang Sudah Ada)
-```sql
--- Join 3 tables
-SELECT 
-  e.emp_name, 
-  d.dept_name, 
-  l.location
-FROM employees e
-JOIN departments d ON e.dept_id = d.dept_id
-JOIN locations l ON d.location_id = l.location_id;
+### 🖥️ DEMO: Join
+```bash
+docker-compose exec oracle-primary sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+SELECT e.emp_name, d.dept_name, l.location
+FROM sys.employees e
+JOIN sys.departments d ON e.dept_id = d.dept_id
+JOIN sys.locations l ON d.location_id = l.location_id;
+EXIT;
+EOF
 ```
 
 **🎯 Penjelasan sambil nunjuk output:**  
@@ -360,16 +311,18 @@ JOIN locations l ON d.location_id = l.location_id;
 **🗣️ "Contoh aggregate function:**"
 
 ### 🖥️ DEMO: Aggregates
-```sql
--- Count, AVG, SUM per department
+```bash
+docker-compose exec oracle-primary sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
 SELECT 
   d.dept_name,
   COUNT(e.emp_id) as emp_count,
   AVG(e.salary) as avg_salary,
   SUM(e.salary) as total_salary
-FROM departments d
-LEFT JOIN employees e ON d.dept_id = e.dept_id
+FROM sys.departments d
+LEFT JOIN sys.employees e ON d.dept_id = e.dept_id
 GROUP BY d.dept_name;
+EXIT;
+EOF
 ```
 
 **🎯 Atau jalankan semua sekaligus:**
@@ -389,6 +342,8 @@ GROUP BY d.dept_name;
 
 **Untuk SQL operations, saya mampu melakukan CRUD operations, complex joins, dan aggregate functions.**
 
+**Environment Docker yang saya demonstrasikan ini menunjukkan kemampuan saya untuk setup, configure, dan troubleshoot database environment.**
+
 **Dengan kombinasi pemahaman konsep dan pengalaman hands-on ini, saya siap untuk berkontribusi sebagai Oracle DBA.**
 
 **Terima kasih, wassalamualaikum wr. wb."**
@@ -406,7 +361,7 @@ GROUP BY d.dept_name;
 
 ## Akses Container
 ```bash
-# DBA Tools (Linux + Oracle Client)
+# DBA Tools (Linux utilities only)
 docker-compose exec dba-tools bash
 
 # Oracle Primary langsung
@@ -416,31 +371,31 @@ docker-compose exec oracle-primary bash
 docker-compose exec sqlserver bash
 ```
 
-## Connect Database
+## Connect Database (New Workflow)
 ```bash
-# Oracle sebagai app_user
-sqlplus app_user/app_pass123@ORACLE_PRIMARY
-
 # Oracle sebagai SYSDBA
-sqlplus sys/oracle@ORACLE_PRIMARY as sysdba
+docker-compose exec oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba
+
+# Oracle sebagai app_user
+docker-compose exec oracle-primary sqlplus app_user/app_pass123@XEPDB1
 
 # SQL Server
-/opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P SqlServer2022! -d NTTPlayground
+docker-compose exec sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P SqlServer2022! -d NTTPlayground
 ```
 
 ## Script Demo Siap Pakai
 ```bash
 # 1. Monitoring Arsitektur
-sqlplus app_user/app_pass123@ORACLE_PRIMARY @/dba-scripts/01_architecture_monitoring.sql
+docker-compose exec -T oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba @/dba-scripts/01_architecture_monitoring.sql
 
 # 2. SQL Examples
 ./scripts/run-sql-examples.sh
 
 # 3. Performance Monitoring
-sqlplus app_user/app_pass123@ORACLE_PRIMARY @/dba-scripts/03_performance_monitoring.sql
+docker-compose exec -T oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba @/dba-scripts/03_performance_monitoring.sql
 
 # 4. Linux DBA Tasks
-./scripts/dba-daily-tasks.sh
+docker-compose exec dba-tools bash -c "./scripts/dba-daily-tasks.sh"
 ```
 
 ## Web Interfaces
@@ -451,11 +406,11 @@ sqlplus app_user/app_pass123@ORACLE_PRIMARY @/dba-scripts/03_performance_monitor
 
 # 💡 TIPS PRESENTASI
 
-1. **Buka terminal split** - Satu untuk presentasi, satu untuk demo
+1. **Buka terminal split** - Satu untuk presentasi, satu untuk logs
 2. **Siapkan command di clipboard** - Copy-paste lebih cepat
 3. **Test dulu sebelum presentasi** - Jalankan `./start.sh` 5 menit sebelum mulai
 4. **Siapkan failover** - Kalau demo gagal, tunjukkan output yang sudah di-screenshot
-5. **Interaksi** - Ajak audiens untuk bertanya di tengah-tengah
+5. **Catatan penting** - Tables di schema SYS, pakai prefix `sys.table_name`
 
 ---
 
@@ -471,6 +426,27 @@ sqlplus app_user/app_pass123@ORACLE_PRIMARY @/dba-scripts/03_performance_monitor
 | Hands-On SQL | 3m | ✅ CRUD + Join demo |
 | Closing | 30s | - |
 | **Total** | **~12-13 menit** | **Buffer 2-3 menit** |
+
+---
+
+# 🍎 APPLE SILICON NOTES
+
+## What's Different?
+- **dba-tools**: Lightweight Debian (130MB), no Oracle Client
+- **Oracle connection**: Via `docker-compose exec oracle-primary`
+- **Architecture**: ARM64 native (no Rosetta)
+
+## Key Commands
+```bash
+# Connect to Oracle (new way)
+docker-compose exec oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba
+
+# Query with SYS prefix
+docker-compose exec oracle-primary bash -c "echo 'SELECT * FROM sys.employees;' | sqlplus -S sys/oracle@XEPDB1 as sysdba"
+
+# Run scripts
+docker-compose exec -T oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba @/dba-scripts/01_architecture_monitoring.sql
+```
 
 ---
 

@@ -2,537 +2,279 @@
 
 **Docker Compose Stack untuk Presentasi & Belajar Oracle Database, SQL Server, dan Linux DBA Tasks**
 
-> 📺 **Untuk Presentasi:** Lihat [NASKAH.md](ntt_playground/NASKAH.md) - Script presentasi 15 menit lengkap dengan demo commands  
+> 🍎 **Apple Silicon Ready!** Native ARM64 support  
+> 📺 **Untuk Presentasi:** Lihat [NASKAH.md](ntt_playground/NASKAH.md) - Script presentasi 15 menit  
 > 📋 **Quick Reference:** Lihat [CHEATSHEET.md](CHEATSHEET.md) - Semua command dalam 1 halaman
 
 ---
 
-## 📑 Table of Contents
+## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Persiapan Presentasi](#-persiapan-presentasi)
-- [Workflow Presentasi](#-workflow-presentasi-15-menit)
-- [Services Overview](#-services-overview)
+- [System Requirements](#-system-requirements)
+- [What's New](#-whats-new)
 - [Quick Start](#-quick-start)
-- [Struktur Folder](#-struktur-folder)
+- [Workflow Presentasi](#-workflow-presentasi)
+- [Services Overview](#-services-overview)
 - [Demo Scenarios](#-demo-scenarios)
 - [Troubleshooting](#-troubleshooting)
 
 ---
 
-## 📺 Persiapan Presentasi
+## 🍎 System Requirements
 
-### Prerequisites
+### Minimum
+- **CPU:** Apple Silicon (M1/M2/M3) atau Intel x86_64
+- **RAM:** 4 GB (8 GB recommended)
+- **Disk:** 20 GB free
+- **Docker:** Version 20.10+ with Docker Compose
 
-Pastikan Docker & Docker Compose sudah terinstall:
-```bash
-docker --version
-docker-compose --version  # atau: docker compose version
-```
-
-### 5 Menit Sebelum Presentasi
-
-```bash
-# 1. Start semua services
-./start.sh
-
-# 2. Tunggu sampai Oracle ready (2-3 menit)
-docker-compose logs -f oracle-primary | grep "DATABASE IS READY"
-
-# 3. Test koneksi
-docker-compose exec dba-tools sqlplus app_user/app_pass123@ORACLE_PRIMARY -v
-```
-
-### Setup Terminal (Rekomendasi)
-
-Buka **3 terminal window** untuk presentasi yang smooth:
-
-```
-Terminal 1: Presentasi (baca NASKAH.md + eksekusi command)
-Terminal 2: Oracle Logs (docker-compose logs -f oracle-primary)
-Terminal 3: Backup/Testing (untuk test command sebelum demo)
-```
+### Apple Silicon Notes
+- ✅ Native ARM64 containers (no Rosetta emulation needed)
+- ✅ dba-tools: Debian Slim 130MB (90% smaller than Ubuntu)
+- ✅ Oracle connection via container exec (not Oracle Client)
 
 ---
 
-## 🎬 Workflow Presentasi (15 Menit)
+## 🆕 What's New
 
-Ikuti alur ini untuk presentasi yang terstruktur:
+### v2.0 - Apple Silicon Support
+- **dba-tools**: Switched to Debian Slim (130MB vs 1.5GB)
+- **Oracle Client**: Removed from dba-tools (use `docker-compose exec oracle-primary` instead)
+- **SQL Server tools**: Removed from dba-tools (use sqlserver container directly)
+- **Architecture**: Full ARM64 native support
 
-### ⏱️ Timeline Presentasi
+### Workflow Changes
+**Before (x86_64 only):**
+```bash
+docker-compose exec dba-tools sqlplus app_user/app_pass123@ORACLE_PRIMARY
+```
 
-| Fase | Durasi | Aktivitas | File Referensi |
-|------|--------|-----------|----------------|
-| **Opening** | 30s | Perkenalan & setup environment | NASKAH.md - Section 1 |
-| **Oracle Architecture** | 3m | Jelaskan Instance & Database + Demo memory/process | NASKAH.md - Section 2 |
-| **Data Guard** | 2m | Konsep HA & DR + Demo primary/standby | NASKAH.md - Section 3 |
-| **SQL Server** | 1.5m | Perbandingan architecture | NASKAH.md - Section 4 |
-| **Linux Tasks** | 2m | Demo monitoring commands | NASKAH.md - Section 5 |
-| **Hands-On SQL** | 3m | CRUD + Join demo | NASKAH.md - Section 6 |
-| **Closing** | 30s | Summary & Q&A | NASKAH.md - Section 7 |
-
-### 📖 Script Presentasi Lengkap
-
-**📝 Buka file:** [ntt_playground/NASKAH.md](ntt_playground/NASKAH.md)
-
-File ini berisi:
-- ✅ Script dialog lengkap (apa yang harus diucapkan)
-- ✅ 🖥️ Hint eksekusi command real-time
-- ✅ 🎯 Kalimat kunci untuk penekanan
-- ✅ ⏱️ Timing per section
-- ✅ 💡 Tips & trik presentasi
-
----
-
-## 📦 Services Overview
-
-| Service | Deskripsi | Port | Credentials | Status |
-|---------|-----------|------|-------------|---------|
-| **oracle-primary** | Oracle Database XE 21c (Primary) | 1521 | sys/oracle | 🟢 Core |
-| **oracle-standby** | Oracle Database XE 21c (Standby/DR) | 1522 | sys/oracle | 🟢 Demo HA |
-| **sqlserver** | SQL Server 2022 Express | 1433 | sa/SqlServer2022! | 🟢 Comparison |
-| **dba-tools** | Linux + Oracle Client + mssql-tools | - | - | 🟢 Interactive |
-| **adminer** | Database GUI (Web-based) | 8080 | - | 🟢 Utility |
-| **portainer** | Container Management Dashboard | 9000 | Setup on first run | 🟢 Utility |
-
-### 🌐 Akses Web Interface
-
-- **Adminer (Database GUI):** http://localhost:8080
-  - Oracle: `oracle-primary:1521/XEPDB1` (app_user/app_pass123)
-  - SQL Server: `sqlserver:1433` (sa/SqlServer2022!)
-  
-- **Portainer:** http://localhost:9000
-  - Buat admin account saat pertama kali akses
+**Now (Apple Silicon compatible):**
+```bash
+docker-compose exec oracle-primary sqlplus app_user/app_pass123@XEPDB1
+```
 
 ---
 
 ## 🚀 Quick Start
 
-### Option 1: Start Script (Recommended)
-
+### 1. Start Environment
 ```bash
-# Clone atau navigate ke folder
-# cd /path/to/NTT_Playground
-
-# Jalankan start script
 ./start.sh
 ```
 
-Script ini akan:
-1. Build dba-tools image
-2. Start semua services
-3. Tunggu Oracle ready
-4. Tampilkan summary akses
-
-### Option 2: Manual Docker Compose
-
+### 2. Wait for Oracle Ready (2-3 menit)
 ```bash
-# Build dan start
-docker-compose up -d
-
-# Check status
-docker-compose ps
-
-# View logs Oracle
-docker-compose logs -f oracle-primary
+docker-compose logs -f oracle-primary | grep "DATABASE IS READY"
 ```
 
-### Stop Environment
-
+### 3. Test Connection
 ```bash
-# Stop tapi simpan data
-./stop.sh
+# Test Oracle
+docker-compose exec oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba
 
-# Atau
-# Stop dan hapus semua data (reset)
-./stop.sh --clean
+# Test SQL Server
+docker-compose exec sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P SqlServer2022! -Q "SELECT @@VERSION"
+```
+
+### 4. Access Web Interfaces
+- **Adminer**: http://localhost:8080
+- **Portainer**: http://localhost:9000
+
+---
+
+## 🎬 Workflow Presentasi
+
+### Timeline 15 Menit
+
+| Fase | Durasi | Command Example |
+|------|--------|----------------|
+| **Opening** | 30s | `./start.sh` |
+| **Oracle Architecture** | 3m | `docker-compose exec oracle-primary sqlplus ... @01_architecture_monitoring.sql` |
+| **Data Guard** | 2m | Check primary/standby status |
+| **SQL Server** | 1.5m | Compare with Oracle |
+| **Linux Tasks** | 2m | `docker-compose exec dba-tools bash` |
+| **Hands-On SQL** | 3m | `./scripts/run-sql-examples.sh` |
+| **Closing** | 30s | Summary |
+
+### Terminal Setup
+```bash
+# Terminal 1: Main presentation
+cd ~/github/NTT_Playground
+./start.sh
+
+# Terminal 2: Oracle logs
+docker-compose logs -f oracle-primary
+
+# Terminal 3: Testing commands
 ```
 
 ---
 
-## 📁 Struktur Folder
+## 📦 Services Overview
 
-```
-NTT_Playground/
-│
-├── 🎬 NASKAH.md                    ⭐ Script presentasi lengkap (476 baris)
-├── 📋 CHEATSHEET.md                ⭐ Quick reference commands
-├── 📖 README.md                    ⭐ Dokumentasi ini
-│
-├── 🚀 start.sh                     Start script dengan auto-wait
-├── 🛑 stop.sh                      Stop script
-│
-├── 🐳 docker-compose.yml           Docker orchestration
-│
-├── 🛢️ oracle/                      Oracle Database Resources
-│   ├── init-scripts/              # Auto-run saat startup
-│   │   └── 01_create_tables.sql   # Create employees, departments, locations
-│   │
-│   └── dba-scripts/               # DBA monitoring scripts
-│       ├── 01_architecture_monitoring.sql   # ⭐ SGA, PGA, Processes
-│       ├── 02_sql_examples.sql              # ⭐ CRUD, Join, Aggregate
-│       ├── 03_performance_monitoring.sql    # Tablespace, waits, locks
-│       └── 04_backup_recovery.sql           # RMAN, Data Pump
-│
-├── 🗄️ sqlserver/                   SQL Server Resources
-│   └── init-scripts/
-│       ├── 01_init.sql            # Create same schema as Oracle
-│       └── 02_monitoring.sql      # SQL Server monitoring queries
-│
-└── 🐧 dba-tools/                   Linux DBA Container
-    ├── Dockerfile                 # Ubuntu + Oracle Instant Client
-    │
-    ├── tnsnames/
-    │   └── tnsnames.ora           # Oracle connection aliases
-    │
-    └── scripts/                   # Helper scripts
-        ├── connect-oracle.sh      # Quick connect to Oracle
-        ├── connect-sqlserver.sh   # Quick connect to SQL Server
-        ├── dba-daily-tasks.sh     # ⭐ Linux monitoring demo
-        └── run-sql-examples.sh    # ⭐ Run all SQL examples
-```
+| Service | Description | Port | Image Size | Platform |
+|---------|-------------|------|------------|----------|
+| **oracle-primary** | Oracle Database XE 21c | 1521 | ~500MB | AMD64 (emulated) |
+| **oracle-standby** | Oracle Standby/DR | 1522 | ~500MB | AMD64 (emulated) |
+| **sqlserver** | SQL Server 2022 Express | 1433 | ~500MB | AMD64 (emulated) |
+| **dba-tools** | Linux utilities only | - | **130MB** | **ARM64 native** |
+| **adminer** | Database GUI | 8080 | ~100MB | Multi-platform |
+| **portainer** | Container management | 9000 | ~80MB | Multi-platform |
 
 ---
 
 ## 🎯 Demo Scenarios
 
-### Scenario 1: Oracle Architecture Deep Dive
-
-**Tujuan:** Demonstrasikan komponen Instance dan Database
-
+### 1. Oracle Architecture Monitoring
 ```bash
-# Step 1: Masuk ke DBA Tools
-docker-compose exec dba-tools bash
+# Connect to Oracle and run monitoring script
+docker-compose exec -T oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba @/dba-scripts/01_architecture_monitoring.sql
 
-# Step 2: Connect ke Oracle
-sqlplus app_user/app_pass123@ORACLE_PRIMARY
-
-# Step 3: Jalankan architecture monitoring
-@/dba-scripts/01_architecture_monitoring.sql
+# Or interactive
+docker-compose exec oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba
+SQL> SELECT name, value/1024/1024 as size_mb FROM v$sga;
+SQL> SELECT pname, spid FROM v$process WHERE pname IS NOT NULL;
 ```
 
-**Penjelasan Output:**
-- `v$sga` - Tunjukkan SGA components
-- `v$process` - Tunjukkan background processes (DBWR, LGWR, etc.)
-- `dba_data_files` - Tunjukkan physical datafiles
-- `v$log` - Tunjukkan redo log files
-
-### Scenario 2: Data Guard High Availability
-
-**Tujuan:** Demonstrasikan konsep Primary & Standby
-
+### 2. SQL Examples (Hands-On)
 ```bash
-# Terminal 1 - Check Primary
-docker-compose exec dba-tools bash
-sqlplus sys/oracle@ORACLE_PRIMARY as sysdba
-SELECT database_role, open_mode FROM v$database;
--- Output: PRIMARY - READ WRITE
-
-# Terminal 2 - Check Standby
-docker-compose exec dba-tools bash
-sqlplus sys/oracle@ORACLE_STANDBY as sysdba
-SELECT database_role, open_mode FROM v$database;
--- Output: PHYSICAL STANDBY - MOUNTED
-```
-
-### Scenario 3: Hands-On SQL Examples
-
-**Tujuan:** Demonstrasikan CRUD operations dan Joins
-
-```bash
-# Jalankan semua SQL examples sekaligus
-docker-compose exec dba-tools bash
+# Run all examples at once
 ./scripts/run-sql-examples.sh
-```
 
-**Atau step-by-step:**
-```sql
--- Connect
-sqlplus app_user/app_pass123@ORACLE_PRIMARY
-
--- 1. SELECT
-SELECT * FROM employees;
-
--- 2. JOIN 3 Tables
+# Or run manually
+docker-compose exec -T oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba <<EOF
+SELECT * FROM sys.employees;
 SELECT e.emp_name, d.dept_name, l.location
-FROM employees e
-JOIN departments d ON e.dept_id = d.dept_id
-JOIN locations l ON d.location_id = l.location_id;
-
--- 3. Aggregates
-SELECT d.dept_name, COUNT(e.emp_id), AVG(e.salary)
-FROM departments d
-LEFT JOIN employees e ON d.dept_id = e.dept_id
-GROUP BY d.dept_name;
-```
-
-### Scenario 4: Linux DBA Daily Tasks
-
-**Tujuan:** Demonstrasikan monitoring commands
-
-```bash
-docker-compose exec dba-tools bash
-
-# Jalankan monitoring lengkap
-./scripts/dba-daily-tasks.sh
-
-# Atau manual:
-df -h                    # Disk usage
-ps -ef | grep ora_       # Oracle processes
-free -h                  # Memory
-```
-
-### Scenario 5: Oracle vs SQL Server Comparison
-
-**Tujuan:** Tunjukkan perbedaan dan persamaan
-
-```bash
-# Oracle
-docker-compose exec dba-tools sqlplus app_user/app_pass123@ORACLE_PRIMARY -S \
-  <<EOF
-SET PAGESIZE 0
-SELECT emp_name, salary FROM employees WHERE ROWNUM <= 3;
+FROM sys.employees e
+JOIN sys.departments d ON e.dept_id = d.dept_id
+JOIN sys.locations l ON d.location_id = l.location_id;
 EXIT;
 EOF
-
-# SQL Server
-docker-compose exec dba-tools /opt/mssql-tools/bin/sqlcmd \
-  -S sqlserver -U sa -P SqlServer2022! -d NTTPlayground \
-  -Q "SELECT TOP 3 emp_name, salary FROM employees"
 ```
 
----
+**Note:** Tables are owned by SYS, use `sys.table_name` prefix.
 
-## 🗄️ Database Schema Reference
+### 3. Linux DBA Tasks
+```bash
+# Access dba-tools container
+docker-compose exec dba-tools bash
 
-### Oracle (XEPDB1)
-
-**Tables:**
-```sql
--- employees
-emp_id      NUMBER (PK)
-emp_name    VARCHAR2(100)
-salary      NUMBER(12,2)
-dept_id     NUMBER (FK)
-hire_date   DATE
-
--- departments
-dept_id     NUMBER (PK)
-dept_name   VARCHAR2(100)
-location_id NUMBER (FK)
-
--- locations
-location_id NUMBER (PK)
-location    VARCHAR2(100)
-city        VARCHAR2(100)
-country     VARCHAR2(50)
+# Run monitoring commands
+df -h
+ps -ef | grep oracle
+free -h
 ```
 
-**Views:**
-- `v_employee_details` - JOIN employees + departments + locations
+### 4. Oracle vs SQL Server Comparison
+```bash
+# Oracle query
+docker-compose exec oracle-primary bash -c "echo 'SELECT * FROM sys.employees;' | sqlplus -S sys/oracle@XEPDB1 as sysdba"
 
-**Users:**
-- `sys` / `oracle` - SYSDBA (full access)
-- `app_user` / `app_pass123` - Application user (CRUD access)
-
-### SQL Server (NTTPlayground)
-
-Schema identik dengan Oracle untuk easy comparison.
+# SQL Server query
+docker-compose exec sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P SqlServer2022! -Q "SELECT TOP 5 * FROM employees"
+```
 
 ---
 
 ## 🔧 Command Reference
 
-### Docker Compose Commands
+### Oracle Connection
+```bash
+# As SYSDBA
+docker-compose exec oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba
 
+# As app_user
+docker-compose exec oracle-primary sqlplus app_user/app_pass123@XEPDB1
+
+# Via helper script
+./scripts/connect-oracle.sh
+```
+
+### SQL Server Connection
+```bash
+# Direct
+docker-compose exec sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P SqlServer2022! -d NTTPlayground
+
+# Via helper script
+./scripts/connect-sqlserver.sh
+```
+
+### Docker Compose
 ```bash
 # Lifecycle
-docker-compose up -d                    # Start all
+docker-compose up -d                    # Start
 docker-compose down                     # Stop (keep data)
 docker-compose down -v                  # Stop + delete data
-docker-compose restart oracle-primary   # Restart specific service
 
 # Monitoring
-docker-compose ps                       # List containers
-docker-compose logs -f oracle-primary   # Follow Oracle logs
-docker-compose top                      # Process stats
-
-# Access
-docker-compose exec dba-tools bash      # Interactive shell
-docker-compose exec oracle-primary bash # Direct to Oracle container
+docker-compose ps                       # Status
+docker-compose logs -f oracle-primary   # Logs
+docker-compose exec oracle-primary healthcheck.sh  # Health check
 ```
 
-### Oracle Connection Commands
+---
 
-```bash
-# Via DBA Tools container
-docker-compose exec dba-tools bash
+## 🗄️ Database Schema
 
-# Connect as APP_USER
-sqlplus app_user/app_pass123@ORACLE_PRIMARY
+### Tables (Owned by SYS)
+- `sys.employees` (emp_id, emp_name, salary, dept_id, hire_date)
+- `sys.departments` (dept_id, dept_name, location_id)
+- `sys.locations` (location_id, location, city, country)
 
-# Connect as SYSDBA
-sqlplus sys/oracle@ORACLE_PRIMARY as sysdba
-
-# Quick test
-sqlplus app_user/app_pass123@ORACLE_PRIMARY -S <<EOF
-SELECT 'Connected!' FROM dual;
-EXIT;
-EOF
-```
-
-### SQL Server Connection Commands
-
-```bash
-# Via DBA Tools
-docker-compose exec dba-tools bash
-
-# Interactive
-/opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P SqlServer2022! -d NTTPlayground
-
-# Single query
-/opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P SqlServer2022! \
-  -d NTTPlayground -Q "SELECT COUNT(*) FROM employees"
-```
+### Users
+- `sys` / `oracle` (SYSDBA)
+- `app_user` / `app_pass123` (with SELECT ANY TABLE permission)
 
 ---
 
 ## 🆘 Troubleshooting
 
-### Oracle Database
-
-#### "ORA-12541: TNS:no listener"
+### Oracle won't start
 ```bash
-# Listener belum ready, tunggu 1-2 menit lagi
-docker-compose logs oracle-primary | grep "DATABASE IS READY"
+# Check logs
+docker-compose logs oracle-primary | tail -50
 
-# Atau restart listener
-docker-compose exec oracle-primary lsnrctl stop
-docker-compose exec oracle-primary lsnrctl start
+# Check if healthy
+docker-compose exec oracle-primary healthcheck.sh
 ```
 
-#### "ORA-01017: invalid username/password"
+### Tables not found
 ```bash
-# Database belum selesai init, tunggu atau check logs
-docker-compose logs oracle-primary | tail -20
+# Verify tables exist
+docker-compose exec oracle-primary sqlplus -S sys/oracle@XEPDB1 as sysdba <<< "SELECT owner, table_name FROM dba_tables WHERE table_name='EMPLOYEES';"
 
-# Test dengan sys
-docker-compose exec dba-tools sqlplus sys/oracle@ORACLE_PRIMARY as sysdba
+# Run init script manually
+docker-compose exec -T oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba @/container-entrypoint-initdb.d/01_create_tables.sql
 ```
 
-#### Database startup lama (>5 menit)
+### Permission denied
 ```bash
-# Cek resource Docker (butuh min 4GB RAM)
-docker stats
-
-# Atau restart
-docker-compose restart oracle-primary
+# Grant permissions to app_user
+docker-compose exec oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba <<EOF
+GRANT SELECT ANY TABLE TO app_user;
+GRANT INSERT ANY TABLE TO app_user;
+GRANT UPDATE ANY TABLE TO app_user;
+GRANT DELETE ANY TABLE TO app_user;
+EXIT;
+EOF
 ```
 
-### SQL Server
-
-#### "Login failed for user 'sa'"
+### Reset Everything
 ```bash
-# SQL Server masih initializing, tunggu 30-60 detik
-docker-compose logs sqlserver | grep "Recovery is complete"
+docker-compose down -v
+./start.sh --reset
 ```
-
-### Presentasi-Specific Issues
-
-#### Demo gagal di tengah presentasi
-```bash
-# Siapkan plan B - restart service tertentu
-docker-compose restart dba-tools
-
-# Atau fallback ke script yang sudah di-test
-./scripts/run-sql-examples.sh
-```
-
-#### Terminal freeze
-```bash
-# Buka terminal baru, environment masih jalan
-docker-compose ps  # Check status
-docker-compose exec dba-tools bash  # New session
-```
-
----
-
-## 📊 Resource Requirements
-
-### Minimum (Bisa jalan tapi lambat)
-- **RAM:** 4 GB
-- **Disk:** 20 GB free
-- **CPU:** 2 cores
-- **Swap:** 2 GB (penting untuk Oracle)
-
-### Recommended (Untuk presentasi smooth)
-- **RAM:** 8 GB
-- **Disk:** 50 GB free (SSD preferred)
-- **CPU:** 4 cores
-- **Swap:** 4 GB
-
-### Check Resource
-```bash
-# Mac/Linux
-docker stats
-
-# Atau
-free -h
-df -h
-```
-
----
-
-## 🔒 Security Warning
-
-⚠️ **WARNING: Environment untuk Development/Presentasi Saja!**
-
-- Password sederhana: `oracle`, `app_pass123`, `SqlServer2022!`
-- Tanpa SSL/TLS encryption
-- Database ports exposed ke localhost
-- **JANGAN** gunakan untuk production atau data sensitif!
-
----
-
-## 📚 Additional Resources
-
-### Documentation
-- [NASKAH.md](ntt_playground/NASKAH.md) - Script presentasi lengkap
-- [CHEATSHEET.md](CHEATSHEET.md) - Semua command 1 halaman
-
-### External Links
-- [Oracle XE Docker Image](https://hub.docker.com/r/gvenzl/oracle-xe)
-- [SQL Server Docker](https://hub.docker.com/_/microsoft-mssql-server)
-- [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html)
-
----
-
-## 🤝 Contributing
-
-Kalau ada improvement atau tambahan script, silakan:
-1. Fork repository
-2. Buat branch baru
-3. Submit PR
 
 ---
 
 ## 📝 License
 
-Docker images menggunakan license masing-masing vendor:
-- Oracle XE: [Oracle License](https://www.oracle.com/downloads/licenses/oracle-db-license.html)
-- SQL Server: [Microsoft License](https://www.microsoft.com/sql-server/sql-server-2022)
-- Ubuntu & Tools: Open Source
+Docker images use their respective vendor licenses:
+- Oracle XE: Oracle License
+- SQL Server: Microsoft License
+- Other: Open Source
 
 ---
 
-## 💡 Quick Tips untuk Presenter
-
-1. **Test dulu** - Jalankan `./start.sh` 10 menit sebelum presentasi
-2. **Siapkan backup** - Screenshot output penting kalau demo gagal
-3. **Split terminal** - 1 untuk script, 1 untuk demo
-4. **Clipboard ready** - Copy command ke clipboard sebelum demo
-5. **Relax** - Kalau ada error, tunjukkan troubleshooting skill! 😊
-
----
-
-**🎉 Selamat Presentasi! Semoga sukses! 🚀**
+**Selamat Presentasi! 🎉**
