@@ -98,6 +98,20 @@ Saya bisa tunjukkan dengan docker-compose ps..."
 docker-compose ps
 ```
 
+**Expected Output:**
+```
+NAME             STATUS                        PORTS
+oracle-primary   Up (healthy)                  0.0.0.0:1521->1521/tcp
+oracle-standby   Up                            0.0.0.0:1522->1521/tcp
+sqlserver        Up (healthy)                  0.0.0.0:1433->1433/tcp
+dba-tools        Up
+adminer          Up                            0.0.0.0:8080->8080/tcp
+portainer        Up                            0.0.0.0:9000->9000/tcp
+```
+
+**🎤 Penjelasan Output:**
+> "Semua service sudah running dengan status healthy. Oracle Primary di port 1521, Standby di 1522, SQL Server di 1433. Adminer dan Portainer juga aktif untuk GUI access."
+
 ---
 
 # 🟦 SLIDE 5 — Oracle Architecture Overview
@@ -188,6 +202,28 @@ EXIT;
 EOF'
 ```
 
+**Expected Output:**
+```
+NAME                           SIZE_MB
+------------------------------ -------
+Fixed Size                           9
+Variable Size                      608
+Database Buffers                   912
+Redo Buffers                         7
+```
+
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah komponen-komponen SGA kita:
+>
+> **Database Buffers (912 MB)** - Ini yang paling besar, tempat nyimpen data block di memory. Kenapa paling besar? Karena itulah yang paling sering diakses oleh query. Semakin besar buffer cache, semakin banyak data yang bisa di-cache di memory, semakin cepat query-nya.
+>
+> **Variable Size (608 MB)** - Ini untuk Shared Pool dan komponen variable lainnya. Shared Pool ini tempat nyimpen parsed SQL dan execution plan.
+>
+> **Fixed Size (9 MB)** - Ini ukuran fixed untuk internal Oracle structures, tidak bisa diubah.
+>
+> **Redo Buffers (7 MB)** - Ini untuk nyimpen redo entries sementara sebelum ditulis ke redo log file oleh LGWR."
+
 ---
 
 # 🟦 SLIDE 8 — PGA
@@ -242,6 +278,36 @@ Kalau salah satu proses kritis mati, database akan bermasalah."
 ```bash
 docker top oracle-primary | grep -E "(oracle|tnslsnr)" | head -8
 ```
+
+**Expected Output:**
+```
+UID    PID    PPID   C   STIME  TTY  TIME    CMD
+54321  5137   5112   0   15:28  ?    00:00   /opt/oracle/product/21c/dbhomeXE/bin/tnslsnr LISTENER
+54321  5333   5137   0   15:28  ?    00:00   /opt/oracle/product/21c/dbhomeXE/bin/oracle xe_pmon_XE
+54321  5451   5137   0   15:28  ?    00:00   /opt/oracle/product/21c/dbhomeXE/bin/oracle xe_dbw0_XE
+54321  5453   5137   0   15:28  ?    00:00   /opt/oracle/product/21c/dbhomeXE/bin/oracle xe_lgwr_XE
+54321  5455   5137   0   15:28  ?    00:00   /opt/oracle/product/21c/dbhomeXE/bin/oracle xe_ckpt_XE
+54321  5457   5137   0   15:28  ?    00:00   /opt/oracle/product/21c/dbhomeXE/bin/oracle xe_smon_XE
+...
+```
+
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah proses-proses Oracle yang berjalan di container. Perhatikan:
+>
+> **tnslsnr (PID 5137)** - Ini Oracle Listener yang jalan di port 1521, menerima koneksi dari client.
+>
+> **xe_pmon_XE (PID 5333)** - PMON (Process Monitor) - handle cleanup session yang crash.
+>
+> **xe_dbw0_XE (PID 5451)** - DBW0 (Database Writer) - nulis data dari buffer ke disk.
+>
+> **xe_lgwr_XE (PID 5453)** - LGWR (Log Writer) - nulis redo log, critical untuk COMMIT.
+>
+> **xe_ckpt_XE (PID 5455)** - CKPT (Checkpoint) - update SCN dan sync data.
+>
+> **xe_smon_XE (PID 5457)** - SMON (System Monitor) - instance recovery saat startup.
+>
+> Pattern nama proses: `xe_[nama_proses]_XE` - xe adalah prefix untuk XE edition."
 
 ---
 
@@ -303,6 +369,30 @@ EXIT;
 EOF'
 ```
 
+**Expected Output:**
+```
+FILE_NAME                                          TABLESPACE_NAME      SIZE_MB
+-------------------------------------------------- -------------------- -------
+/opt/oracle/oradata/XE/XEPDB1/system01.dbf         SYSTEM                 272
+/opt/oracle/oradata/XE/XEPDB1/sysaux01.dbf         SYSAUX                 330
+/opt/oracle/oradata/XE/XEPDB1/undotbs01.dbf        UNDOTBS1                11
+/opt/oracle/oradata/XE/XEPDB1/users01.dbf          USERS                    2
+```
+
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah datafiles Oracle kita. Perhatikan:
+>
+> **SYSTEM (272 MB)** - Ini tablespace paling penting, nyimpen data dictionary (metadata database), system tables, dan stored procedures. Tanpa SYSTEM, database tidak bisa jalan.
+>
+> **SYSAUX (330 MB)** - System Auxiliary, tempat AWR (Automatic Workload Repository), OLAP, dan Text data. Ini adalah extension dari SYSTEM.
+>
+> **UNDOTBS1 (11 MB)** - Undo Tablespace, tempat nyimpen undo data untuk read consistency dan rollback. Setiap transaksi yang belum commit, undo-nya disini.
+>
+> **USERS (2 MB)** - Ini tablespace untuk user data, tempat tabel dan index aplikasi kita.
+>
+> Perhatikan ekstensi **.dbf** - itu standar untuk Oracle Datafiles. Lokasinya di `/opt/oracle/oradata/XE/` yang adalah default data directory."
+
 ---
 
 # 🟦 SLIDE 12 — Control File Importance
@@ -339,6 +429,29 @@ SELECT name FROM v\$controlfile;
 EXIT;
 EOF'
 ```
+
+**Expected Output:**
+```
+NAME
+------------------------------------------------------------
+/opt/oracle/oradata/XE/control01.ctl
+/opt/oracle/oradata/XE/control02.ctl
+```
+
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah control files kita. Ada 2 file:
+>
+> **control01.ctl** dan **control02.ctl** - Kenapa ada 2? Ini untuk multiplexing (redundancy). Kalau satu corrupt, masih ada backup.
+>
+> Control file ini sangat critical karena berisi:
+> - Database name dan created date
+> - Paths dari semua datafiles dan redo log files
+> - Current SCN (System Change Number)
+> - Checkpoint information
+> - Archive log history
+>
+> Tanpa control file, database tidak bisa mount! Makanya Oracle recommend minimum 2 control files di lokasi berbeda (kalau production, di disk berbeda)."
 
 ---
 
@@ -457,6 +570,25 @@ EXIT;
 EOF'
 ```
 
+**Expected Output:**
+```
+DATABASE_ROLE        OPEN_MODE
+-------------------- --------------------
+PRIMARY              READ WRITE
+```
+
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah Primary Database kita. Perhatikan:
+>
+> **DATABASE_ROLE: PRIMARY** - Ini adalah database utama yang menerima transaksi dari aplikasi. Ini adalah sumber data yang authoritative.
+>
+> **OPEN_MODE: READ WRITE** - Database terbuka penuh, bisa dibaca dan ditulis. User bisa melakukan INSERT, UPDATE, DELETE.
+>
+> Status ini menunjukkan database healthy dan operational. Kalau ada masalah, status bisa berubah menjadi MOUNTED (hanya mount, belum open) atau bahkan closed.
+>
+> Untuk Standby, seharusnya outputnya PHYSICAL STANDBY - MOUNTED, tapi karena ini XE (Express Edition) yang limited, standby juga berjalan sebagai PRIMARY."
+
 ---
 
 # 🟦 SLIDE 17 — SQL Server Architecture
@@ -485,6 +617,31 @@ Dan juga menggunakan write-ahead logging - log dulu, baru data."
 ```bash
 docker-compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P SqlServer2022! -C -Q "SELECT name, physical_name, size*8/1024 as size_mb, type_desc FROM sys.master_files WHERE database_id = DB_ID('NTTPlayground')"
 ```
+
+**Expected Output:**
+```
+name                 physical_name                        size_mb type_desc
+-------------------- ------------------------------------ ------- ---------
+NTTPlayground        /var/opt/mssql/data/NTTPlayground.mdf      8 ROWS
+NTTPlayground_log    /var/opt/mssql/data/NTTPlayground_log.ldf  8 LOG
+
+(2 rows affected)
+```
+
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah database files di SQL Server. Perhatikan perbedaan dengan Oracle:
+>
+> **NTTPlayground.mdf (8 MB)** - Ini adalah Primary Data File (MDF). Sama fungsinya dengan datafiles di Oracle, tempat nyimpen tabel dan data. Extensinya .mdf (Master Data File).
+>
+> **NTTPlayground_log.ldf (8 MB)** - Ini adalah Transaction Log File (LDF). Sama fungsinya dengan Redo Logs di Oracle, mencatat semua perubahan transaksi. Extensinya .ldf (Log Data File).
+>
+> **Perbandingan dengan Oracle:**
+> - Oracle punya banyak datafiles per tablespace, SQL Server biasanya 1 MDF per database
+> - Oracle redo logs dirotasi (groups), SQL Server transaction log terus grow (kecuali dibatasi)
+> - Konsep Write-Ahead Logging sama: log dulu, baru data
+>
+> SQL Server juga bisa punya NDF (Secondary Data Files) kalau database besar, mirip additional datafiles di Oracle."
 
 ---
 
@@ -542,6 +699,52 @@ Karena prevention lebih baik daripada troubleshooting saat sudah down."
 ```bash
 docker-compose exec dba-tools bash /scripts/dba-daily-tasks.sh
 ```
+
+**Expected Output:**
+```
+================================
+NTT Playground - DBA Daily Tasks
+================================
+
+1. Disk Usage (df -h):
+----------------------
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/vda1            1007G   22G  935G   3% /oracle-data
+
+2. Memory Usage:
+----------------------
+               total        used        free      shared  buff/cache   available
+Mem:           7.7Gi       7.0Gi       211Mi       2.5Gi       3.1Gi       640Mi
+Swap:          1.0Gi       478Mi       545Mi
+
+3. Top Processes (CPU):
+----------------------
+...
+
+================================
+Monitoring complete!
+================================
+```
+
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah hasil monitoring lengkap. Perhatikan bagian-bagian penting:
+>
+> **1. Disk Usage:**
+> - Filesystem `/dev/vda1` - Ini adalah disk utama container
+> - Size: 1007 GB (total), Used: 22 GB, Available: 935 GB
+> - Use%: 3% - Masih sangat aman, idealnya alarm kalau sudah >80%
+> - Mounted on: `/oracle-data` - Ini adalah volume Oracle data
+>
+> **2. Memory Usage:**
+> - Mem: 7.7 GB total, 7.0 GB used - Ini termasuk shared memory untuk Oracle SGA
+> - Available: 640 MB - Masih cukup untuk operasi normal
+> - Swap: 1.0 GB dengan 493 MB used - Swap digunakan ketika RAM penuh
+>
+> **Kenapa monitoring ini penting:**
+> - **Disk penuh = database error** - Oracle tidak bisa write data, redo log, atau backup
+> - **Memory habis = performance degrade** - System mulai pakai swap (slow)
+> - **CPU tinggi = query bermasalah** - Bisa ada query yang infinite loop atau table scan"
 
 ---
 
@@ -612,6 +815,31 @@ EXIT;
 EOF'
 ```
 
+**Expected Output:**
+```
+EMP_NAME               SALARY
+--------------- ----------
+Rafi               8000000
+Budi               7500000
+Citra              9000000
+Dedi               7200000
+```
+
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah hasil filter dengan WHERE clause. Perhatikan:
+>
+> **WHERE salary > 7000000** - Kita filter hanya yang salary-nya di atas 7 juta.
+>
+> **Hasilnya 4 orang:** Rafi (8 juta), Budi (7.5 juta), Citra (9 juta), dan Dedi (7.2 juta).
+>
+> **Ani tidak muncul** - Karena salary Ani 6.5 juta, di bawah 7 juta. WHERE clause memfilter data sebelum ditampilkan.
+>
+> Ini contoh basic filtering yang sering dipakai DBA untuk:
+> - Cari user dengan privilege tertentu
+> - Filter data berdasarkan tanggal
+> - Mencari record yang melebihi threshold"
+
 ---
 
 # 🟦 SLIDE 22 — JOIN Multiple Tables
@@ -654,6 +882,38 @@ JOIN sys.locations l ON d.location_id = l.location_id;
 EXIT;
 EOF'
 ```
+
+**Expected Output:**
+```
+EMP_NAME        DEPT_NAME            LOCATION
+--------------- -------------------- --------------------
+Rafi            IT Department        Jakarta HQ
+Budi            IT Department        Jakarta HQ
+Ani             HR Department        Jakarta HQ
+Citra           Sales Department     Bandung Office
+Dedi            Finance              Jakarta HQ
+```
+
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah hasil JOIN 3 tables. Perhatikan relasinya:
+>
+> **Relasi antar Tabel:**
+> - **employees** JOIN **departments** menggunakan `dept_id` - lihat Rafi (dept_id 10) = IT Department
+> - **departments** JOIN **locations** menggunakan `location_id` - IT Department ada di Jakarta HQ
+>
+> **Pattern yang terlihat:**
+> - **IT Department (Jakarta HQ):** Rafi dan Budi - 2 orang di department yang sama
+> - **HR Department (Jakarta HQ):** Ani - 1 orang
+> - **Sales Department (Bandung Office):** Citra - beda lokasi, di Bandung
+> - **Finance (Jakarta HQ):** Dedi - 1 orang
+>
+> **Mengapa JOIN penting:**
+> - Real world: data tersimpan di banyak tabel (normalization)
+> - JOIN menggabungkan data dari tabel berbeda jadi satu view
+> - Bisa JOIN 2, 3, atau lebih tabel selama ada relationship (foreign key)
+>
+> Kalau tidak pakai JOIN, kita harus query 3x terpisah dan gabungkan manual."
 
 ---
 
@@ -704,6 +964,38 @@ GROUP BY d.dept_name;
 EXIT;
 EOF'
 ```
+
+**Expected Output:**
+```
+DEPT_NAME            EMP_COUNT AVG_SALARY TOTAL_SALARY
+-------------------- --------- ---------- ------------
+IT Department                2    7750000     15500000
+HR Department                1    6500000      6500000
+Sales Department             1    9000000      9000000
+Finance                      1    7200000      7200000
+```
+
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah hasil aggregate functions dengan GROUP BY. Perhatikan:
+>
+> **COUNT(e.emp_id):**
+> - IT Department: 2 orang (Rafi + Budi)
+> - HR, Sales, Finance: masing-masing 1 orang
+> - Total 5 employees, sesuai dengan data kita
+>
+> **AVG(e.salary):**
+> - IT Department: 7,750,000 (rata-rata Rafi 8jt + Budi 7.5jt)
+> - Sales Department: 9,000,000 (Citra saja, jadi rata-rata = salary-nya)
+> - HR Department: 6,500,000 (Ani)
+>
+> **SUM(e.salary):**
+> - IT Department: 15,500,000 (8jt + 7.5jt)
+> - Total semua department: 38,200,000 per bulan
+>
+> **LEFT JOIN departments:** Kenapa pakai LEFT JOIN? Supaya semua department muncul, meskipun tidak punya employee. Kalau INNER JOIN, department tanpa employee tidak akan muncul.
+>
+> **GROUP BY:** Data dikelompokkan per department, jadi aggregate function dihitung per grup, bukan total keseluruhan."
 
 ---
 

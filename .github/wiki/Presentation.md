@@ -1,4 +1,4 @@
-# Presentation Script
+![[PRESENTATION_GUIDE]]# Presentation Script
 
 Naskah presentasi lengkap 15 menit untuk Oracle DBA Interview.
 
