@@ -23,8 +23,10 @@ docker-compose exec oracle-primary sqlplus app_user/app_pass123@XEPDB1
 ./scripts/connect-oracle.sh                       # Helper script (recommended)
 
 ### SQL Server (Direct from sqlserver container)
-docker-compose exec sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P SqlServer2022! -d NTTPlayground
-./scripts/connect-sqlserver.sh                    # Helper script
+# Note: Use /opt/mssql-tools18/bin/sqlcmd (not /opt/mssql-tools/bin/sqlcmd)
+# Note: Add -C flag to trust server certificate (ODBC Driver 18 requirement)
+docker-compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P SqlServer2022! -C -d NTTPlayground
+./scripts/connect-sqlserver.sh                    # Helper script (recommended)
 
 ## 📜 RUN SCRIPTS
 
@@ -35,7 +37,8 @@ docker-compose exec -T oracle-primary sqlplus sys/oracle@XEPDB1 as sysdba @/dba-
 ./scripts/run-sql-examples.sh                     # Run all SQL examples
 
 ### SQL Server
-docker-compose exec -T sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P SqlServer2022! -d NTTPlayground -i /init-scripts/02_monitoring.sql
+# Note: Add -C flag for SSL certificate trust
+docker-compose exec -T sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P SqlServer2022! -C -d NTTPlayground -i /init-scripts/02_monitoring.sql
 
 ### Helper Scripts (run from dba-tools container)
 docker-compose exec dba-tools bash -c "./scripts/dba-daily-tasks.sh"      # Linux monitoring
