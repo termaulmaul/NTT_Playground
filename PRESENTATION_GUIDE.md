@@ -73,17 +73,131 @@ docker-compose ps
 
 # 📖 BAGIAN 2: ORACLE DATABASE ARCHITECTURE (3 menit)
 
-## 🗣️ Naskah - Pengenalan
+## 🗣️ Naskah - Pengenalan dengan Gambar
 
 > "Baik, saya mulai dari Oracle Database Architecture.
 > 
-> Kalau kita lihat konsepnya, Oracle dibagi menjadi **dua bagian besar**: Instance dan Database.
+> **(Tunjuk gambar OracleDatabaseArchitecture.jpeg)**
 > 
-> Instance itu ada di memory (atas), Database itu ada di disk (bawah)."
+> Pada gambar ini, kita bisa melihat arsitektur Oracle Database secara lengkap.
+> 
+> Diagram ini terbagi menjadi **dua bagian besar**:
+> * Bagian atas adalah **INSTANCE**
+> * Bagian bawah adalah **DATABASE (physical storage)**"
 
-## 🗣️ Naskah - Memory Structure (SGA/PGA)
+---
 
-> "Instance terdiri dari **Memory Structure** dan **Background Processes**.
+## 🖼️ Penjelasan Detail Gambar Architecture
+
+### 🔹 1️⃣ User Connection Layer (Sebelah Kiri Diagram)
+
+> "**(Tunjuk bagian kiri gambar)**
+> 
+> Di sisi kiri kita melihat:
+> 
+> * **SQLPlus (User Process)** - Aplikasi client yang mengirim query
+> * **Listener** - Yang menerima koneksi dari client
+> * **Parameter File** - Konfigurasi instance
+> * **Password File** - Autentikasi admin
+> 
+> **Alurnya adalah:**
+> 
+> User connect melalui **listener** → listener mengarahkan ke **Oracle Server Process** → lalu masuk ke **Instance**.
+> 
+> **Listener ini sangat penting** karena dia yang menerima koneksi client melalui port 1521.
+> 
+> Kalau listener down, user tidak bisa connect meskipun database jalan."
+
+💻 **Demo (Opsional):**
+```bash
+docker-compose exec oracle-primary lsnrctl status
+```
+
+---
+
+### 🔹 2️⃣ Instance Layer (Bagian Atas Diagram)
+
+#### 🧠 Memory Structure (Kotak SGA)
+
+> "**(Tunjuk kotak SGA di gambar)**
+> 
+> Di dalam Instance terdapat **SGA** dan **PGA**.
+> 
+> **SGA** (kotak besar kuning) adalah shared memory dan terdiri dari:
+> 
+> * **Database Buffer Cache** → kotak abu-abu besar di tengah, menyimpan data block di memory
+> * **Shared Pool** → sebelah kanan, menyimpan parsed SQL dan data dictionary cache
+> * **Redo Log Buffer** → sebelah kiri atas, menyimpan redo entries
+> * **Large Pool, Java Pool, Stream Pool** → sebelah kanan (optional memory areas)
+> 
+> **PGA** berada di luar SGA (kotak orange di kiri atas) dan bersifat **private untuk tiap session**.
+> 
+> Perhatikan panah dari **Oracle Server Process** masuk ke **SGA**, artinya semua user process berbagi SGA ini."
+
+#### ⚙️ Background Processes (Kotak-kotak Hijau di Atas)
+
+> "**(Tunjuk proses-proses di atas SGA)**
+> 
+> Di bagian atas terlihat proses-proses background:
+> 
+> * **MMON** - Manageability Monitor
+> * **SMON** - System Monitor  
+> * **PMON** - Process Monitor
+> * **RECO** - Recovery Process
+> * **MMNL** - Memory Monitor Light
+> 
+> Dan di bawah SGA ada proses I/O:
+> 
+> * **DBWR** (Database Writer) → panah ke Datafiles, tulis data ke disk
+> * **LGWR** (Log Writer) → panah ke Online Redo Log
+> * **CKPT** (Checkpoint) → update SCN
+> * **ARCn** (Archiver) → panah ke Archived Redo Logs
+> 
+> Perhatikan **panah dari LGWR** menuju **Online Redo Log** - ini menunjukkan bahwa setiap transaksi dicatat dulu sebelum ke datafile."
+
+---
+
+### 🔹 3️⃣ Database Layer (Bagian Bawah Diagram)
+
+> "**(Tunjuk bagian bawah gambar)**
+> 
+> Bagian bawah adalah **physical database**.
+> 
+> Terdiri dari:
+> 
+> * **Datafiles** → silinder abu-abu (kiri bawah), menyimpan tabel dan index
+> * **Control Files** → silinder hijau (tengah bawah), metadata database
+> * **Online Redo Log Files** → silinder pink (kanan bawah), mencatat transaksi
+> * **Archived Redo Logs** → silinder biru, hasil arsip redo log
+> * **Flashback Log** → silinder merah (pojok kanan), untuk flashback
+> 
+> **Panah dari DBWR** menuju **Datafiles** menunjukkan proses penulisan data.
+> 
+> **Panah dari CKPT** menunjukkan checkpoint process yang update control file dan datafile headers."
+
+### 🎯 Kesimpulan Gambar Architecture
+
+> "**Kalau kita ikuti alur panah di diagram ini:**
+> 
+> 1. User Query masuk melalui **Listener**
+> 2. Diproses di **Memory (SGA)** - cek buffer cache
+> 3. Kalau data tidak ada di cache, dibaca dari **Datafiles**
+> 4. Perubahan dicatat di **Redo Log Buffer**
+> 5. **LGWR** tulis ke **Online Redo Log**
+> 6. **DBWR** tulis ke **Datafiles** (saat checkpoint)
+> 
+> Inilah yang menjamin:
+> * **Data consistency**
+> * **Transaction durability**  
+> * **Recovery capability**
+> 
+> Konsep ini disebut **Write Ahead Logging** - redo dulu, baru datafile."
+
+---
+
+## 🗣️ Naskah - Memory Structure Detail (SGA/PGA)
+
+> "Secara detail, **Instance** terdiri dari **Memory Structure** dan **Background Processes**.
 > 
 > Di memory ada yang namanya **SGA** (System Global Area) dan **PGA** (Program Global Area).
 > 
@@ -180,13 +294,113 @@ docker-compose exec oracle-primary bash -c \
 
 # 📖 BAGIAN 3: ORACLE DATA GUARD (2 menit)
 
-## 🗣️ Naskah - Pengenalan
+## 🗣️ Naskah - Pengenalan dengan Gambar
 
 > "Selanjutnya, **Oracle Data Guard** untuk High Availability dan Disaster Recovery.
 > 
-> Konsepnya ada **Primary Database** (kiri) dan **Standby Database** (kanan)."
+> **(Tunjuk gambar OracleDataGuard.jpeg)**
+> 
+> Pada gambar ini, kita melihat arsitektur Oracle Data Guard secara lengkap.
+> 
+> Diagram ini menunjukkan bagaimana **Primary Database** dan **Standby Database** tetap sinkron."
 
-## 🗣️ Naskah - Alur Data Guard
+---
+
+## 🖼️ Penjelasan Detail Gambar Data Guard
+
+### 🔹 1️⃣ Primary Side (Kiri Diagram)
+
+> "**(Tunjuk bagian kiri gambar - Primary database transactions)**
+> 
+> Di sisi kiri adalah **Primary Database**.
+> 
+> **Alurnya:**
+> 
+> 1. User melakukan **transaksi** (Primary database transactions)
+> 2. Perubahan masuk ke **Redo Buffer** (kotak tengah)
+> 3. **LGWR** (Lingkaran di bawah Redo Buffer) menulis ke **Online Redo Logs** (silinder tiga warna)
+> 4. **LNSn** (Log Network Server) mengirim redo ke standby melalui network
+> 
+> Perhatikan **garis putus-putus nomor 1** dari Redo Buffer ke LNSn - ini menunjukkan transport real-time."
+
+---
+
+### 🔹 2️⃣ Network Layer (Tengah Diagram)
+
+> "**(Tunjuk garis tengah bertuliskan 'Oracle net')**
+> 
+> Redo dikirim melalui **Oracle Net**.
+> 
+> Garis putus-putus nomor 2 dan 4 menunjukkan komunikasi antara Primary dan Standby.
+> 
+> Jika mode protection **Maximum Availability** atau **Maximum Protection**, pengiriman bisa **synchronous**.
+> 
+> Jika **Maximum Performance**, biasanya **asynchronous**."
+
+---
+
+### 🔹 3️⃣ Standby Side (Kanan Diagram)
+
+> "**(Tunjuk bagian kanan gambar - Standby database)**
+> 
+> Di sisi standby:
+> 
+> * **RFS** (Remote File Server) - lingkaran nomor 2, menerima redo dari primary
+> * Redo disimpan ke **Standby Redo Log** (silinder tiga warna dengan label 'Real-time apply')
+> * **MRP** atau **LSP** (Managed Recovery Process / Logical Standby Process) - lingkaran nomor 6, meng-apply redo ke datafile standby
+> 
+> Perhatikan **panah nomor 3** bertuliskan **'(Real-time apply)'** - ini artinya redo langsung di-apply tanpa menunggu archive log selesai."
+
+---
+
+### 🔹 4️⃣ Gap Resolution (Bagian Bawah Diagram)
+
+> "**(Tunjuk bagian bawah - Gap resolution)**
+> 
+> Jika terjadi **gangguan network** dan redo tidak terkirim, proses **ARC0** (Archiver) akan melakukan **gap resolution**.
+> 
+> **Alurnya:**
+> 
+> 1. **ARC0** di primary mendeteksi ada gap (redo yang belum terkirim)
+> 2. **ARC0** mengirim **Archived Redo Logs** (silinder hijau nomor 5)
+> 3. Di standby, **ARC0** menerima dan menyimpan archived logs
+> 
+> Ini memastikan standby tetap konsisten meskipun ada network interruption."
+
+---
+
+### 🔹 5️⃣ Output Standby (Aplikasi)
+
+> "**(Tunjuk pojok kanan atas - Backup, Reports)**
+> 
+> Standby bisa digunakan untuk:
+> 
+> * **Reporting** - Query read-only tanpa ganggu primary
+> * **Backup Offloading** - Backup diambil dari standby, primary tidak terbebani
+> * **Disaster Recovery** - Kalau primary down, standby bisa di-promote
+> 
+> Jika primary down, kita bisa lakukan:
+> * **Switchover** → planned (maintenance)
+> * **Failover** → unplanned (disaster)"
+
+---
+
+### 🎯 Kesimpulan Gambar Data Guard
+
+> "**Data Guard memastikan:**
+> 
+> * **High Availability** - Minimal downtime
+> * **Zero atau minimal data loss** - Tergantung protection mode
+> * **Disaster Recovery** - Standby siap takeover
+> 
+> Dengan arsitektur **redo-based replication**.
+> 
+> **Kalau kita ikuti alur di gambar:**
+> Primary (Redo) → Network → Standby (Apply) → Reports/DR"
+
+---
+
+## 🗣️ Naskah - Alur Data Guard Detail
 
 > "Proses sinkronisasinya seperti ini:
 > 
