@@ -75,7 +75,7 @@ docker-compose exec oracle-primary bash -c \
 **Script:**
 > "Di bagian background processes, ada beberapa proses penting:
 > 
-> - DBWR (Database Writer) → nulis data dari buffer cache ke datafile
+> - DBWn (Database Writer) → nulis data dari buffer cache ke datafile
 > - LGWR (Log Writer) → nulis redo dari buffer ke online redo log
 > - CKPT (Checkpoint) → update control file dan datafile header
 > - SMON & PMON → system monitor dan process monitor untuk recovery

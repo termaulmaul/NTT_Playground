@@ -167,7 +167,7 @@ docker-compose exec oracle-primary lsnrctl status
 > 
 > Dan di bawah SGA ada proses I/O:
 > 
-> * **DBWn** (Database Writer) → panah ke Datafiles, tulis data ke disk
+> * **DBWR** (Database Writer) → panah ke Datafiles, tulis data ke disk
 > * **LGWR** (Log Writer) → panah ke Online Redo Log
 > * **CKPT** (Checkpoint) → update SCN
 > * **ARCn** (Archiver) → panah ke Archived Redo Logs
@@ -190,7 +190,7 @@ docker-compose exec oracle-primary lsnrctl status
 > * **Archived Redo Logs** → silinder biru, hasil arsip redo log
 > * **Flashback Log** → silinder merah (pojok kanan), untuk flashback
 > 
-> **Panah dari DBWn** menuju **Datafiles** menunjukkan proses penulisan data.
+> **Panah dari DBWR** menuju **Datafiles** menunjukkan proses penulisan data.
 > 
 > **Panah dari CKPT** menunjukkan checkpoint process yang update control file dan datafile headers."
 
@@ -203,7 +203,7 @@ docker-compose exec oracle-primary lsnrctl status
 > 3. Kalau data tidak ada di cache, dibaca dari **Datafiles**
 > 4. Perubahan dicatat di **Redo Log Buffer**
 > 5. **LGWR** tulis ke **Online Redo Log**
-> 6. **DBWn** tulis ke **Datafiles** (saat checkpoint)
+> 6. **DBWR** tulis ke **Datafiles** (saat checkpoint)
 > 
 > Inilah yang menjamin:
 > * **Data consistency**
@@ -276,7 +276,7 @@ Redo Buffers                         7
 
 > "Di bagian background processes, ada beberapa proses penting:
 > 
-> - **DBWn** (Database Writer) → nulis data dari buffer cache ke datafile
+> - **DBWR** (Database Writer) → nulis data dari buffer cache ke datafile
 > - **LGWR** (Log Writer) → nulis redo dari buffer ke online redo log
 > - **CKPT** (Checkpoint) → update control file dan datafile header
 > - **SMON & PMON** → system monitor dan process monitor untuk recovery
@@ -331,7 +331,7 @@ SMON       108        oracle@oracle-primary (SMON)
 
 **💡 Tips Presentasi:**
 - Sebutkan bahwa setiap proses punya PID (Process ID) yang unik
-- Tekankan perbedaan LGWR (async) vs DBWn (lazy write)
+- Tekankan perbedaan LGWR (async) vs DBWR (lazy write)
 - Jelaskan SMON vs PMON: SMON untuk instance, PMON untuk session
 
 ---
