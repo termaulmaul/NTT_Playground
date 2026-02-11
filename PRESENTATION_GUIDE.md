@@ -231,19 +231,24 @@ docker-compose exec oracle-primary lsnrctl status
 
 **Command:**
 ```bash
-docker-compose exec oracle-primary bash -c \
-  "echo 'SELECT name, value/1024/1024 as size_mb FROM v\$sga;' | \
-   sqlplus -S sys/oracle@XEPDB1 as sysdba"
+docker-compose exec oracle-primary bash -c 'sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+SET PAGESIZE 100
+SET LINESIZE 80
+COLUMN name FORMAT A30
+COLUMN size_mb FORMAT 999999
+SELECT name, value/1024/1024 as size_mb FROM v\$sga;
+EXIT;
+EOF'
 ```
 
 **Expected Output:**
 ```
-NAME                      SIZE_MB
--------------------- ----------
-Fixed Size              9.23769379
-Variable Size                 608
-Database Buffers              912
-Redo Buffers            6.76171875
+NAME                           SIZE_MB
+------------------------------ -------
+Fixed Size                           9
+Variable Size                      608
+Database Buffers                   912
+Redo Buffers                         7
 ```
 
 **Penjelasan sambil nunjuk output:**
@@ -265,25 +270,31 @@ Redo Buffers            6.76171875
 
 **Command:**
 ```bash
-docker-compose exec oracle-primary bash -c \
-  "echo 'SELECT pname, spid, program FROM v\$process WHERE pname IS NOT NULL ORDER BY pname;' | \
-   sqlplus -S sys/oracle@XEPDB1 as sysdba"
+docker-compose exec oracle-primary bash -c 'sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+SET PAGESIZE 100
+SET LINESIZE 120
+COLUMN pname FORMAT A10
+COLUMN spid FORMAT A10
+COLUMN program FORMAT A50
+SELECT pname, spid, program 
+FROM v\$process 
+WHERE pname IS NOT NULL 
+ORDER BY pname;
+EXIT;
+EOF'
 ```
 
 **Expected Output:**
 ```
-PNAME                               SPID PROGRAM
------------------------------- ---------- ------------------------------------------------
-ARC0                                 123 oracle@oracle-primary (ARC0)
-ARC1                                 124 oracle@oracle-primary (ARC1)
-ARC2                                 125 oracle@oracle-primary (ARC2)
-ARC3                                 126 oracle@oracle-primary (ARC3)
-CKPT                                 115 oracle@oracle-primary (CKPT)
-DBW0                                 113 oracle@oracle-primary (DBW0)
-LGWR                                 114 oracle@oracle-primary (LGWR)
-MMON                                 121 oracle@oracle-primary (MMON)
-PMON                                 111 oracle@oracle-primary (PMON)
-SMON                                 112 oracle@oracle-primary (SMON)
+PNAME      SPID       PROGRAM
+---------- ---------- --------------------------------------------------
+CKPT       106        oracle@oracle-primary (CKPT)
+DBW0       102        oracle@oracle-primary (DBW0)
+LGWR       104        oracle@oracle-primary (LGWR)
+MMON       120        oracle@oracle-primary (MMON)
+PMON       30         oracle@oracle-primary (PMON)
+SMON       108        oracle@oracle-primary (SMON)
+...
 ```
 
 **Penjelasan:**
@@ -305,64 +316,84 @@ SMON                                 112 oracle@oracle-primary (SMON)
 
 **Command 1 - Datafiles:**
 ```bash
-docker-compose exec oracle-primary bash -c \
-  "echo 'SELECT file_name, tablespace_name, bytes/1024/1024 as size_mb FROM dba_data_files;' | \
-   sqlplus -S sys/oracle@XEPDB1 as sysdba"
+docker-compose exec oracle-primary bash -c 'sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+SET PAGESIZE 100
+SET LINESIZE 120
+COLUMN tablespace_name FORMAT A20
+COLUMN file_name FORMAT A50
+COLUMN size_mb FORMAT 999999
+SELECT file_name, tablespace_name, bytes/1024/1024 as size_mb 
+FROM dba_data_files;
+EXIT;
+EOF'
 ```
 
 **Expected Output:**
 ```
-FILE_NAME                                            TABLESPACE_NAME        SIZE_MB
----------------------------------------------------- ------------------ ----------
-/opt/oracle/oradata/XE/system01.dbf                  SYSTEM                     360
-/opt/oracle/oradata/XE/sysaux01.dbf                  SYSAUX                     470
-/opt/oracle/oradata/XE/undotbs01.dbf                 UNDOTBS                    125
-/opt/oracle/oradata/XE/users01.dbf                   USERS                        5
+FILE_NAME                                          TABLESPACE_NAME      SIZE_MB
+-------------------------------------------------- -------------------- -------
+/opt/oracle/oradata/XE/XEPDB1/system01.dbf         SYSTEM                 272
+/opt/oracle/oradata/XE/XEPDB1/sysaux01.dbf         SYSAUX                 330
+/opt/oracle/oradata/XE/XEPDB1/undotbs01.dbf        UNDOTBS1                11
+/opt/oracle/oradata/XE/XEPDB1/users01.dbf          USERS                    2
 ```
 
 **Command 2 - Control Files:**
 ```bash
-docker-compose exec oracle-primary bash -c \
-  "echo 'SELECT name FROM v\$controlfile;' | \
-   sqlplus -S sys/oracle@XEPDB1 as sysdba"
+docker-compose exec oracle-primary bash -c 'sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+SET PAGESIZE 100
+SET LINESIZE 100
+COLUMN name FORMAT A60
+SELECT name FROM v$controlfile;
+EXIT;
+EOF'
 ```
 
 **Expected Output:**
 ```
 NAME
---------------------------------------------------------------------------------
+------------------------------------------------------------
 /opt/oracle/oradata/XE/control01.ctl
 /opt/oracle/oradata/XE/control02.ctl
 ```
 
 **Command 3 - Redo Logs:**
 ```bash
-docker-compose exec oracle-primary bash -c \
-  "echo 'SELECT group#, sequence#, bytes/1024/1024 as size_mb, status FROM v\$log;' | \
-   sqlplus -S sys/oracle@XEPDB1 as sysdba"
+docker-compose exec oracle-primary bash -c 'sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+SET PAGESIZE 100
+SET LINESIZE 100
+COLUMN status FORMAT A15
+SELECT group#, sequence#, bytes/1024/1024 as size_mb, status 
+FROM v$log;
+EXIT;
+EOF'
 ```
 
 **Expected Output:**
 ```
     GROUP#  SEQUENCE#    SIZE_MB STATUS
----------- ---------- ---------- ----------------
-	 1         15        200 CURRENT
-	 2         14        200 INACTIVE
-	 3         13        200 INACTIVE
+---------- ---------- ---------- ---------------
+         1         22         10 CURRENT
+         2         21         10 INACTIVE
 ```
 
 **Command 4 - Archive Mode:**
 ```bash
-docker-compose exec oracle-primary bash -c \
-  "echo 'SELECT log_mode, open_mode FROM v\$database;' | \
-   sqlplus -S sys/oracle@XEPDB1 as sysdba"
+docker-compose exec oracle-primary bash -c 'sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+SET PAGESIZE 100
+SET LINESIZE 80
+COLUMN log_mode FORMAT A15
+COLUMN open_mode FORMAT A20
+SELECT log_mode, open_mode FROM v$database;
+EXIT;
+EOF'
 ```
 
 **Expected Output:**
 ```
-LOG_MODE     OPEN_MODE
------------- --------------------
-ARCHIVELOG   READ WRITE
+LOG_MODE        OPEN_MODE
+--------------- --------------------
+ARCHIVELOG      READ WRITE
 ```
 
 ## 🎯 Key Point (Kalimat Kunci)
@@ -503,25 +534,35 @@ ARCHIVELOG   READ WRITE
 
 **Command 1 - Check Primary:**
 ```bash
-docker-compose exec oracle-primary bash -c \
-  "echo 'SELECT database_role, open_mode FROM v\$database;' | \
-   sqlplus -S sys/oracle@XEPDB1 as sysdba"
+docker-compose exec oracle-primary bash -c 'sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+SET PAGESIZE 100
+SET LINESIZE 100
+COLUMN database_role FORMAT A20
+COLUMN open_mode FORMAT A20
+SELECT database_role, open_mode FROM v$database;
+EXIT;
+EOF'
 ```
 
 **Expected Output:**
 ```
-DATABASE_ROLE    OPEN_MODE
----------------- --------------------
-PRIMARY          READ WRITE
+DATABASE_ROLE        OPEN_MODE
+-------------------- --------------------
+PRIMARY              READ WRITE
 ```
 
 **Penjelasan:** > "Ini Primary Database, status OPEN dan bisa READ WRITE."
 
 **Command 2 - Check Standby:**
 ```bash
-docker-compose exec oracle-standby bash -c \
-  "echo 'SELECT database_role, open_mode FROM v\$database;' | \
-   sqlplus -S sys/oracle@XEPDB1 as sysdba"
+docker-compose exec oracle-standby bash -c 'sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+SET PAGESIZE 100
+SET LINESIZE 100
+COLUMN database_role FORMAT A20
+COLUMN open_mode FORMAT A20
+SELECT database_role, open_mode FROM v$database;
+EXIT;
+EOF'
 ```
 
 **Expected Output:**
@@ -692,54 +733,28 @@ docker-compose exec oracle-primary tail -10 /opt/oracle/diag/rdbms/xe/XE/trace/a
 ./dba-tools/scripts/run-sql-examples.sh
 ```
 
-**Atau manual:**
+**Atau manual (dengan format rapi):**
 ```bash
-docker-compose exec oracle-primary bash -c \
-  "echo 'SELECT * FROM sys.employees;' | \
-   sqlplus -S sys/oracle@XEPDB1 as sysdba"
+docker-compose exec oracle-primary bash -c 'sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+SET PAGESIZE 100
+SET LINESIZE 120
+COLUMN emp_name FORMAT A15
+COLUMN salary FORMAT 999999999
+SELECT emp_id, emp_name, salary, dept_id, hire_date 
+FROM sys.employees;
+EXIT;
+EOF'
 ```
 
 **Expected Output:**
 ```
-    EMP_ID
-----------
-EMP_NAME
---------------------------------------------------------------------------------
-    SALARY    DEPT_ID HIRE_DATE
----------- ---------- ------------------
-	 1
-Rafi
-   8000000	   10 15-JAN-23
-
-	 2
-Budi
-   7500000	   10 20-MAR-23
-
-    EMP_ID
-----------
-EMP_NAME
---------------------------------------------------------------------------------
-    SALARY    DEPT_ID HIRE_DATE
----------- ---------- ------------------
-
-	 3
-Ani
-   6500000	   20 10-FEB-23
-
-	 4
-Citra
-
-    EMP_ID
-----------
-EMP_NAME
---------------------------------------------------------------------------------
-    SALARY    DEPT_ID HIRE_DATE
----------- ---------- ------------------
-   9000000	   30 05-APR-23
-
-	 5
-Dedi
-   7200000	   40 12-MAY-23
+    EMP_ID EMP_NAME            SALARY    DEPT_ID HIRE_DATE
+---------- --------------- ---------- ---------- ------------------
+         1 Rafi               8000000         10 15-JAN-23
+         2 Budi               7500000         10 20-MAR-23
+         3 Ani                6500000         20 10-FEB-23
+         4 Citra              9000000         30 05-APR-23
+         5 Dedi               7200000         40 12-MAY-23
 ```
 
 **Penjelasan:**> "Ini menampilkan semua data employees. Ada 5 data sample."
@@ -748,28 +763,24 @@ Dedi
 
 **Command 2 - Select dengan Condition:**
 ```bash
-docker-compose exec oracle-primary bash -c \
-  "echo 'SELECT emp_name, salary FROM sys.employees WHERE salary > 7000000;' | \
-   sqlplus -S sys/oracle@XEPDB1 as sysdba"
+docker-compose exec oracle-primary bash -c 'sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+SET PAGESIZE 100
+SET LINESIZE 120
+COLUMN emp_name FORMAT A15
+COLUMN salary FORMAT 999999999
+SELECT emp_name, salary FROM sys.employees WHERE salary > 7000000;
+EXIT;
+EOF'
 ```
 
 **Expected Output:**
 ```
-EMP_NAME
---------------------------------------------------------------------------------
-    SALARY
-----------
-Rafi
-   8000000
-
-Budi
-   7500000
-
-Citra
-   9000000
-
-Dedi
-   7200000
+EMP_NAME               SALARY
+--------------- ----------
+Rafi               8000000
+Budi               7500000
+Citra              9000000
+Dedi               7200000
 ```
 
 **Penjelasan:**> "Ini filter employees dengan salary di atas 7 juta."
@@ -778,58 +789,31 @@ Dedi
 
 ## 💻 Demo 2: JOIN 3 Tables
 
-**Command:**
+**Command (dengan format rapi):**
 ```bash
-docker-compose exec oracle-primary sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+docker-compose exec oracle-primary bash -c 'sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+SET PAGESIZE 100
+SET LINESIZE 120
+COLUMN emp_name FORMAT A15
+COLUMN dept_name FORMAT A20
+COLUMN location FORMAT A20
 SELECT e.emp_name, d.dept_name, l.location
 FROM sys.employees e
 JOIN sys.departments d ON e.dept_id = d.dept_id
 JOIN sys.locations l ON d.location_id = l.location_id;
 EXIT;
-EOF
+EOF'
 ```
 
 **Expected Output:**
 ```
-EMP_NAME
---------------------------------------------------------------------------------
-DEPT_NAME
---------------------------------------------------------------------------------
-LOCATION
---------------------------------------------------------------------------------
-Rafi
-IT Department
-Jakarta HQ
-
-Budi
-IT Department
-Jakarta HQ
-
-EMP_NAME
---------------------------------------------------------------------------------
-DEPT_NAME
---------------------------------------------------------------------------------
-LOCATION
---------------------------------------------------------------------------------
-
-Ani
-HR Department
-Jakarta HQ
-
-Citra
-Sales Department
-
-EMP_NAME
---------------------------------------------------------------------------------
-DEPT_NAME
---------------------------------------------------------------------------------
-LOCATION
---------------------------------------------------------------------------------
-Bandung Office
-
-Dedi
-Finance
-Jakarta HQ
+EMP_NAME        DEPT_NAME            LOCATION
+--------------- -------------------- --------------------
+Rafi            IT Department        Jakarta HQ
+Budi            IT Department        Jakarta HQ
+Ani             HR Department        Jakarta HQ
+Citra           Sales Department     Bandung Office
+Dedi            Finance              Jakarta HQ
 ```
 
 **Penjelasan:**> "Ini menunjukkan JOIN 3 tables - employees, departments, dan locations. Kita bisa lihat employee di department mana dan lokasi mana."
@@ -838,9 +822,15 @@ Jakarta HQ
 
 ## 💻 Demo 3: Aggregate Functions
 
-**Command:**
+**Command (dengan format rapi):**
 ```bash
-docker-compose exec oracle-primary sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+docker-compose exec oracle-primary bash -c 'sqlplus -S sys/oracle@XEPDB1 as sysdba <<EOF
+SET PAGESIZE 100
+SET LINESIZE 120
+COLUMN dept_name FORMAT A20
+COLUMN emp_count FORMAT 999
+COLUMN avg_salary FORMAT 999999999
+COLUMN total_salary FORMAT 999999999
 SELECT 
   d.dept_name,
   COUNT(e.emp_id) as emp_count,
@@ -850,30 +840,17 @@ FROM sys.departments d
 LEFT JOIN sys.employees e ON d.dept_id = e.dept_id
 GROUP BY d.dept_name;
 EXIT;
-EOF
+EOF'
 ```
 
 **Expected Output:**
 ```
-DEPT_NAME
---------------------------------------------------------------------------------
- EMP_COUNT AVG_SALARY TOTAL_SALARY
----------- ---------- ------------
-IT Department
-	 2    7750000	  15500000
-
-HR Department
-	 1    6500000	   6500000
-
-Sales Department
-	 1    9000000	   9000000
-
-DEPT_NAME
---------------------------------------------------------------------------------
- EMP_COUNT AVG_SALARY TOTAL_SALARY
----------- ---------- ------------
-Finance
-	 1    7200000	   7200000
+DEPT_NAME            EMP_COUNT AVG_SALARY TOTAL_SALARY
+-------------------- --------- ---------- ------------
+IT Department                2    7750000     15500000
+HR Department                1    6500000      6500000
+Sales Department             1    9000000      9000000
+Finance                      1    7200000      7200000
 ```
 
 **Penjelasan:**> "Ini menunjukkan aggregate functions - COUNT, AVG, SUM per department."
