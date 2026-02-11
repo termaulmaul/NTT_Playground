@@ -830,7 +830,36 @@ Monitoring complete!
 ================================
 ```
 
-**Atau manual:**
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah hasil monitoring lengkap. Perhatikan bagian-bagian penting:
+> 
+> **1. Disk Usage:**
+> - Filesystem `/dev/vda1` - Ini adalah disk utama container
+> - Size: 1007 GB (total), Used: 22 GB, Available: 935 GB
+> - Use%: 3% - Masih sangat aman, idealnya alarm kalau sudah >80%
+> - Mounted on: `/oracle-data` - Ini adalah volume Oracle data
+> 
+> **2. Memory Usage:**
+> - Mem: 7.7 GB total, 7.0 GB used - Ini termasuk shared memory untuk Oracle SGA
+> - Available: 640 MB - Masih cukup untuk operasi normal
+> - Swap: 1.0 GB dengan 493 MB used - Swap digunakan ketika RAM penuh
+> 
+> **3. Top Processes:**
+> - Menunjukkan proses yang paling banyak pakai CPU
+> - Bisa kita lihat proses Oracle (ora_) atau proses lain yang bermasalah
+> 
+> **Kenapa monitoring ini penting:**
+> - **Disk penuh = database error** - Oracle tidak bisa write data, redo log, atau backup
+> - **Memory habis = performance degrade** - System mulai pakai swap (slow)
+> - **CPU tinggi = query bermasalah** - Bisa ada query yang infinite loop atau table scan"
+
+**💡 Tips Presentasi:**
+- Tekankan threshold: Disk >80% = warning, >90% = critical
+- Jelaskan Available memory vs Free memory (beda di Linux)
+- Tunjukkan bahwa SGA Oracle masuk ke "used" memory
+
+**Atau manual (untuk cek spesifik):**
 ```bash
 # Masuk ke container
 docker-compose exec dba-tools bash
@@ -846,24 +875,62 @@ Filesystem            Size  Used Avail Use% Mounted on
 exit
 ```
 
-**Penjelasan:**
-> "Ini menunjukkan disk usage. Sebagai DBA, kita harus monitor space karena kalau penuh, database bisa error."
-
 ---
 
 ## 💻 Demo 2: Process Monitoring
 
-**Command:**
+**Command (dari HOST machine):**
 ```bash
-# Dari dba-tools
-docker-compose exec dba-tools ps -ef | grep -E "(oracle|sql)"
-
-# Atau dari oracle container langsung
-docker-compose exec oracle-primary ps -ef | grep ora_
+# Lihat semua proses di oracle-primary container
+docker top oracle-primary | head -20
 ```
 
-**Penjelasan:**
-> "Ini menunjukkan proses Oracle yang berjalan. Kita bisa monitor CPU dan memory usage."
+**Command alternatif (dari dba-tools container):**
+```bash
+# Cek proses dari dalam dba-tools
+docker-compose exec dba-tools ps aux | head -10
+```
+
+**Expected Output (docker top):**
+```
+UID                 PID                 PPID                C                   STIME               TTY                 TIME                CMD
+54321               5137                5112                0                   15:28               ?                   00:00:00            /opt/oracle/product/21c/dbhomeXE/bin/tnslsnr LISTENER -inherit
+54321               5333                5137                0                   15:28               ?                   00:00:01            /opt/oracle/product/21c/dbhomeXE/bin/oracle xe_pmon_XE
+54321               5449                5137                0                   15:28               ?                   00:00:07            /opt/oracle/product/21c/dbhomeXE/bin/oracle xe_dia0_XE
+54321               5451                5137                0                   15:28               ?                   00:00:02            /opt/oracle/product/21c/dbhomeXE/bin/oracle xe_dbw0_XE
+54321               5453                5137                0                   15:28               ?                   00:00:05            /opt/oracle/product/21c/dbhomeXE/bin/oracle xe_lgwr_XE
+54321               5455                5137                0                   15:28               ?                   00:00:03            /opt/oracle/product/21c/dbhomeXE/bin/oracle xe_ckpt_XE
+...
+```
+
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah proses-proses Oracle yang berjalan di container. Perhatikan:
+> 
+> **Proses-proses penting yang terlihat:**
+> - **tnslsnr** (PID 5137) - Ini Oracle Listener yang jalan di port 1521, menerima koneksi dari client
+> - **xe_pmon_XE** (PID 5333) - PMON (Process Monitor) - handle cleanup session yang crash
+> - **xe_dbw0_XE** (PID 5451) - DBW0 (Database Writer) - nulis data dari buffer ke disk
+> - **xe_lgwr_XE** (PID 5453) - LGWR (Log Writer) - nulis redo log, critical untuk COMMIT
+> - **xe_ckpt_XE** (PID 5455) - CKPT (Checkpoint) - update SCN dan sync data
+> - **xe_dia0_XE** (PID 5449) - Diagnostic process untuk troubleshooting
+> 
+> **Pattern nama proses:** `xe_[nama_proses]_XE`
+> - `xe` = prefix untuk XE edition
+> - `[nama_proses]` = PMON, DBW0, LGWR, dll
+> - `_XE` = suffix untuk database SID (XE)
+> 
+> **Kenapa monitoring proses penting:**
+> - Kalau PMON mati = session crash tidak dibersihkan
+> - Kalau DBW0/LGWR mati = database akan hang
+> - Kalau Listener mati = client tidak bisa connect
+> - High CPU/Memory usage = ada query bermasalah"
+
+**💡 Tips Presentasi:**
+- Sebutkan bahwa setiap proses punya PID (Process ID) yang unik
+- Tekankan kalau proses background mati, database bermasalah
+- Jelaskan kenapa menggunakan `docker top` (karena `ps` tidak ada di oracle container)
+- Bandingkan dengan output SQL `v$process` yang dilihat sebelumnya
 
 ---
 
@@ -871,16 +938,124 @@ docker-compose exec oracle-primary ps -ef | grep ora_
 
 **Command:**
 ```bash
-# Listener status
+# Listener status - cek apakah listener jalan dan menerima koneksi
 docker-compose exec oracle-primary lsnrctl status
-
-# Alert log (show last 10 lines)
-docker-compose exec oracle-primary tail -10 /opt/oracle/diag/rdbms/xe/XE/trace/alert_XE.log
 ```
+
+**Expected Output:**
+```
+LSNRCTL for Linux: Version 21.0.0.0.0 - Production on 11-FEB-2026 17:42:47
+
+Copyright (c) 1991, 2021, Oracle. All rights reserved.
+
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=IPC)(KEY=EXTPROC_FOR_XE)))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER
+Version                   TNSLSNR for Linux: Version 21.0.0.0.0 - Production
+Start Date                11-FEB-2026 15:28:55
+Uptime                    0 days 2 hr. 13 min. 52 sec
+Trace Level               off
+Security                  ON: Local OS Authentication
+SNMP                      OFF
+Default Service           XE
+Listener Parameter File   /opt/oracle/homes/OraDBHome21cXE/network/admin/listener.ora
+Listener Log File         /opt/oracle/diag/tnslsnr/oracle-primary/listener/alert/log.xml
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(ADDRESS=(PROTOCOL=ipc)(KEY=EXTPROC_FOR_XE))))
+  (DESCRIPTION=(ADDRESS=(ADDRESS=(PROTOCOL=tcp)(HOST=0.0.0.0)(PORT=1521))))
+Services Summary...
+Service "XE" has 1 instance(s).
+  Instance "XE", status READY, has 1 handler(s) for this service...
+The command completed successfully
+```
+
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah status Oracle Listener. Perhatikan informasi penting:
+> 
+> **Status Listener:**
+> - **Alias: LISTENER** - Nama listener (default)
+> - **Version: 21.0.0.0.0** - Versi Oracle 21c
+> - **Uptime: 0 days 2 hr. 13 min.** - Listener sudah jalan 2 jam 13 menit
+> - **Status: READY** - Listener siap menerima koneksi
+> 
+> **Listening Endpoints:**
+> - **PROTOCOL=ipc** (Inter-Process Communication) - Untuk komunikasi internal di server
+> - **PROTOCOL=tcp, PORT=1521** - Port standar Oracle, client connect ke sini
+> - **HOST=0.0.0.0** - Menerima koneksi dari IP mana saja (bukan localhost only)
+> 
+> **Services Summary:**
+> - **Service "XE"** - Database service name (untuk koneksi)
+> - **Instance "XE"** - Database instance name
+> - **status READY** - Database sudah OPEN dan siap menerima query
+> 
+> **Log Files:**
+> - Listener Log: `/opt/oracle/diag/tnslsnr/oracle-primary/listener/alert/log.xml`
+> - Untuk troubleshooting koneksi error (ORA-12541, ORA-12514)
+
+**💡 Tips Presentasi:**
+- Tekankan port 1521 adalah port standar Oracle
+- Jelaskan READY vs BLOCKED (kalau database shutdown)
+- Sebutkan bahwa tanpa listener, client tidak bisa connect meskipun database jalan
+- Tunjukkan log file location untuk troubleshooting
+
+---
+
+**Command untuk Alert Log:**
+```bash
+# Alert log - log penting database (errors, startup, shutdown)
+docker-compose exec oracle-primary tail -20 /opt/oracle/diag/rdbms/xe/XE/trace/alert_XE.log
+```
+
+**Expected Output (sample):**
+```
+2025-02-11T15:28:55.123456+00:00
+XE(3):Starting ORACLE instance (normal)
+2025-02-11T15:28:56.234567+00:00
+XE(3):Mounting database XE
+2025-02-11T15:28:57.345678+00:00
+XE(3):Database mounted in EXCLUSIVE mode
+2025-02-11T15:28:58.456789+00:00
+XE(3):Completed: ALTER DATABASE OPEN
+2025-02-11T15:29:00.567890+00:00
+XE(3):Database opened in READ WRITE mode
+...
+```
+
+**🎤 Penjelasan Output (Sambil Nunjuk Layar):**
+
+> "Ini adalah Alert Log - log paling penting untuk DBA. Perhatikan:
+> 
+> **Jenis informasi di Alert Log:**
+> - **Startup/Shutdown database** - Timestamp kapan database start/stop
+> - **Errors** - ORA- errors (ORA-00600, ORA-07445, dll)
+> - **Warnings** - Tablespace penuh, archive log issues
+> - **Configuration changes** - Parameter changes, ALTER SYSTEM commands
+> - **Checkpoint info** - Frekuensi checkpoint
+> 
+> **Contoh output di atas:**
+> - `Starting ORACLE instance` - Database mulai start
+> - `Mounting database XE` - Database di-mount (baca control file)
+> - `Database mounted in EXCLUSIVE mode` - Mode single instance (bukan RAC)
+> - `ALTER DATABASE OPEN` - Database dibuka untuk user
+> - `Database opened in READ WRITE mode` - Siap menerima transaksi
+> 
+> **Kenapa Alert Log penting:**
+> - **Troubleshooting pertama** - Kalau ada error, cek alert log dulu
+> - **Audit trail** - Tracking perubahan dan event database
+> - **Performance analysis** - Lihat pattern startup/shutdown, errors berulang
+> - **Recovery info** - SCN, checkpoint, backup completion"
+
+**💡 Tips Presentasi:**
+- Jelaskan alert log adalah "black box" database (seperti flight recorder pesawat)
+- Tekankan untuk selalu cek alert log kalau ada masalah
+- Sebutkan perbedaan alert log (database events) vs listener log (connection events)
+- Tunjukkan command `tail -f` untuk real-time monitoring
 
 ## 🎯 Key Point
 
-> "Monitoring ini penting untuk **deteksi masalah sebelum berdampak ke user**. Prevention is better than cure."
+> "Monitoring ini penting untuk **deteksi masalah sebelum berdampak ke user**. Prevention is better than cure. Sebagai DBA, kita harus rajin cek disk space, memory, proses, dan log untuk memastikan database healthy."
 
 ---
 
