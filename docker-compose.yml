@@ -1,0 +1,152 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # ORACLE DATABASE (Primary)
+  # ============================================
+  oracle-primary:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: oracle-primary
+    hostname: oracle-primary
+    ports:
+      - "1521:1521"
+      - "5500:5500"
+    environment:
+      ORACLE_PASSWORD: oracle
+      APP_USER: app_user
+      APP_USER_PASSWORD: app_pass123
+      ORACLE_DATABASE: XEPDB1
+    volumes:
+      - oracle-primary-data:/opt/oracle/oradata
+      - ./oracle/init-scripts:/container-entrypoint-initdb.d
+      - ./oracle/dba-scripts:/dba-scripts
+    networks:
+      - ntt-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+
+  # ============================================
+  # ORACLE DATABASE (Standby - for Data Guard Demo)
+  # ============================================
+  oracle-standby:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: oracle-standby
+    hostname: oracle-standby
+    ports:
+      - "1522:1521"
+      - "5501:5500"
+    environment:
+      ORACLE_PASSWORD: oracle
+      APP_USER: app_user
+      APP_USER_PASSWORD: app_pass123
+      ORACLE_DATABASE: XEPDB1
+    volumes:
+      - oracle-standby-data:/opt/oracle/oradata
+    networks:
+      - ntt-network
+    depends_on:
+      - oracle-primary
+    restart: unless-stopped
+
+  # ============================================
+  # SQL SERVER
+  # ============================================
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    hostname: sqlserver
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: SqlServer2022!
+      MSSQL_PID: Express
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+      - ./sqlserver/init-scripts:/init-scripts
+    networks:
+      - ntt-network
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "SqlServer2022!", "-Q", "SELECT 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  # ============================================
+  # DBA TOOLS (Linux with Oracle Client & SQL Tools)
+  # ============================================
+  dba-tools:
+    build:
+      context: ./dba-tools
+      dockerfile: Dockerfile
+    container_name: dba-tools
+    hostname: dba-tools
+    tty: true
+    stdin_open: true
+    environment:
+      ORACLE_HOME: /opt/oracle/instantclient_21_9
+      LD_LIBRARY_PATH: /opt/oracle/instantclient_21_9
+      PATH: /opt/oracle/instantclient_21_9:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      TNS_ADMIN: /opt/oracle/network/admin
+    volumes:
+      - ./dba-tools/scripts:/scripts
+      - ./dba-tools/tnsnames:/opt/oracle/network/admin
+      - oracle-primary-data:/oracle-data:ro
+    networks:
+      - ntt-network
+    depends_on:
+      - oracle-primary
+      - sqlserver
+    command: /bin/bash
+
+  # ============================================
+  # DATABASE ADMIN GUI (Optional)
+  # ============================================
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - ntt-network
+    depends_on:
+      - oracle-primary
+      - sqlserver
+    restart: unless-stopped
+
+  # ============================================
+  # PORTAINER (Container Management)
+  # ============================================
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    networks:
+      - ntt-network
+    restart: unless-stopped
+
+networks:
+  ntt-network:
+    driver: bridge
+    name: ntt-network
+
+volumes:
+  oracle-primary-data:
+    name: oracle-primary-data
+  oracle-standby-data:
+    name: oracle-standby-data
+  sqlserver-data:
+    name: sqlserver-data
+  portainer-data:
+    name: portainer-data
