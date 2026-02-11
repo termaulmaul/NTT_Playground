@@ -8,8 +8,8 @@ echo "================================"
 echo "Running SQL Examples"
 echo "================================"
 
-# Connect as app_user and run examples
-sqlplus app_user/app_pass123@ORACLE_PRIMARY <<EOF
+# Connect as app_user and run examples via oracle-primary container
+docker-compose exec -T oracle-primary sqlplus app_user/app_pass123@XEPDB1 <<'EOF'
 
 PROMPT =================================
 PROMPT 1. SELECT All Employees
