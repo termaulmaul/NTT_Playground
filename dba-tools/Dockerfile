@@ -60,11 +60,8 @@ RUN wget -q https://download.oracle.com/otn_software/linux/instantclient/219000/
 # Create network admin directory
 RUN mkdir -p /opt/oracle/network/admin
 
-# Install SQLcl (Oracle SQL Command Line)
-RUN wget -q https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-22.4.0.0.zip && \
-    unzip -q sqlcl-22.4.0.0.zip -d /opt/ && \
-    rm -f sqlcl-22.4.0.0.zip && \
-    ln -s /opt/sqlcl/bin/sql /usr/local/bin/sqlcl
+# Note: SQLcl installation skipped - using SQL*Plus instead
+# SQLcl URL often changes/expired, SQL*Plus is sufficient for presentation
 
 # Install Microsoft SQL Server tools
 RUN curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/microsoft.gpg && \
