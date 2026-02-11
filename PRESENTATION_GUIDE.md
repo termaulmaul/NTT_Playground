@@ -344,7 +344,7 @@ docker-compose exec oracle-primary bash -c 'sqlplus -S sys/oracle@XEPDB1 as sysd
 SET PAGESIZE 100
 SET LINESIZE 100
 COLUMN name FORMAT A60
-SELECT name FROM v$controlfile;
+SELECT name FROM v\$controlfile;
 EXIT;
 EOF'
 ```
@@ -364,7 +364,7 @@ SET PAGESIZE 100
 SET LINESIZE 100
 COLUMN status FORMAT A15
 SELECT group#, sequence#, bytes/1024/1024 as size_mb, status 
-FROM v$log;
+FROM v\$log;
 EXIT;
 EOF'
 ```
@@ -384,7 +384,7 @@ SET PAGESIZE 100
 SET LINESIZE 80
 COLUMN log_mode FORMAT A15
 COLUMN open_mode FORMAT A20
-SELECT log_mode, open_mode FROM v$database;
+SELECT log_mode, open_mode FROM v\$database;
 EXIT;
 EOF'
 ```
@@ -393,7 +393,7 @@ EOF'
 ```
 LOG_MODE        OPEN_MODE
 --------------- --------------------
-ARCHIVELOG      READ WRITE
+NOARCHIVELOG    READ WRITE
 ```
 
 ## 🎯 Key Point (Kalimat Kunci)
@@ -539,7 +539,7 @@ SET PAGESIZE 100
 SET LINESIZE 100
 COLUMN database_role FORMAT A20
 COLUMN open_mode FORMAT A20
-SELECT database_role, open_mode FROM v$database;
+SELECT database_role, open_mode FROM v\$database;
 EXIT;
 EOF'
 ```
@@ -560,7 +560,7 @@ SET PAGESIZE 100
 SET LINESIZE 100
 COLUMN database_role FORMAT A20
 COLUMN open_mode FORMAT A20
-SELECT database_role, open_mode FROM v$database;
+SELECT database_role, open_mode FROM v\$database;
 EXIT;
 EOF'
 ```
@@ -569,8 +569,9 @@ EOF'
 ```
 DATABASE_ROLE        OPEN_MODE
 -------------------- --------------------
-PHYSICAL STANDBY     MOUNTED
+PRIMARY              READ WRITE
 ```
+
 
 **Penjelasan:** > "Ini Standby Database, status MOUNTED dan siap menerima redo dari primary."
 
