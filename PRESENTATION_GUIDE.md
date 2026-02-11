@@ -77,8 +77,10 @@ docker-compose ps
 
 > "Baik, saya mulai dari Oracle Database Architecture.
 > 
-> **(Tunjuk gambar OracleDatabaseArchitecture.jpeg)**
-> 
+> **(Tunjuk gambar di bawah ini)**
+
+![Oracle Database Architecture](OracleDatabaseArchitecture.jpeg)
+
 > Pada gambar ini, kita bisa melihat arsitektur Oracle Database secara lengkap.
 > 
 > Diagram ini terbagi menjadi **dua bagian besar**:
@@ -298,8 +300,10 @@ docker-compose exec oracle-primary bash -c \
 
 > "Selanjutnya, **Oracle Data Guard** untuk High Availability dan Disaster Recovery.
 > 
-> **(Tunjuk gambar OracleDataGuard.jpeg)**
-> 
+> **(Tunjuk gambar di bawah ini)**
+
+![Oracle Data Guard Architecture](OracleDataGuard.jpeg)
+
 > Pada gambar ini, kita melihat arsitektur Oracle Data Guard secara lengkap.
 > 
 > Diagram ini menunjukkan bagaimana **Primary Database** dan **Standby Database** tetap sinkron."
