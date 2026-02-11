@@ -34,11 +34,28 @@ docker-compose exec -T sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U s
 # Test Oracle
 docker-compose exec oracle-primary bash -c \
   "echo 'SELECT COUNT(*) FROM sys.employees;' | sqlplus -S sys/oracle@XEPDB1 as sysdba"
+```
 
+**Expected Output:**
+```
+  COUNT(*)
+----------
+	 5
+```
+
+```bash
 # Test SQL Server
 docker-compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd \
   -S localhost -U sa -P SqlServer2022! -C -d NTTPlayground \
   -Q "SELECT COUNT(*) FROM employees"
+```
+
+**Expected Output:**
+```
+-----------
+          5
+
+(1 rows affected)
 ```
 
 **✅ Kalau output muncul angka 5, berarti siap presentasi!**
@@ -219,6 +236,16 @@ docker-compose exec oracle-primary bash -c \
    sqlplus -S sys/oracle@XEPDB1 as sysdba"
 ```
 
+**Expected Output:**
+```
+NAME                      SIZE_MB
+-------------------- ----------
+Fixed Size              9.23769379
+Variable Size                 608
+Database Buffers              912
+Redo Buffers            6.76171875
+```
+
 **Penjelasan sambil nunjuk output:**
 > "Ini kita bisa lihat SGA components dan ukurannya. Database Buffers paling besar (912 MB) karena itu yang paling sering diakses. Fixed Size dan Redo Buffers lebih kecil."
 
@@ -241,6 +268,22 @@ docker-compose exec oracle-primary bash -c \
 docker-compose exec oracle-primary bash -c \
   "echo 'SELECT pname, spid, program FROM v\$process WHERE pname IS NOT NULL ORDER BY pname;' | \
    sqlplus -S sys/oracle@XEPDB1 as sysdba"
+```
+
+**Expected Output:**
+```
+PNAME                               SPID PROGRAM
+------------------------------ ---------- ------------------------------------------------
+ARC0                                 123 oracle@oracle-primary (ARC0)
+ARC1                                 124 oracle@oracle-primary (ARC1)
+ARC2                                 125 oracle@oracle-primary (ARC2)
+ARC3                                 126 oracle@oracle-primary (ARC3)
+CKPT                                 115 oracle@oracle-primary (CKPT)
+DBW0                                 113 oracle@oracle-primary (DBW0)
+LGWR                                 114 oracle@oracle-primary (LGWR)
+MMON                                 121 oracle@oracle-primary (MMON)
+PMON                                 111 oracle@oracle-primary (PMON)
+SMON                                 112 oracle@oracle-primary (SMON)
 ```
 
 **Penjelasan:**
@@ -267,11 +310,29 @@ docker-compose exec oracle-primary bash -c \
    sqlplus -S sys/oracle@XEPDB1 as sysdba"
 ```
 
+**Expected Output:**
+```
+FILE_NAME                                            TABLESPACE_NAME        SIZE_MB
+---------------------------------------------------- ------------------ ----------
+/opt/oracle/oradata/XE/system01.dbf                  SYSTEM                     360
+/opt/oracle/oradata/XE/sysaux01.dbf                  SYSAUX                     470
+/opt/oracle/oradata/XE/undotbs01.dbf                 UNDOTBS                    125
+/opt/oracle/oradata/XE/users01.dbf                   USERS                        5
+```
+
 **Command 2 - Control Files:**
 ```bash
 docker-compose exec oracle-primary bash -c \
   "echo 'SELECT name FROM v\$controlfile;' | \
    sqlplus -S sys/oracle@XEPDB1 as sysdba"
+```
+
+**Expected Output:**
+```
+NAME
+--------------------------------------------------------------------------------
+/opt/oracle/oradata/XE/control01.ctl
+/opt/oracle/oradata/XE/control02.ctl
 ```
 
 **Command 3 - Redo Logs:**
@@ -281,11 +342,27 @@ docker-compose exec oracle-primary bash -c \
    sqlplus -S sys/oracle@XEPDB1 as sysdba"
 ```
 
+**Expected Output:**
+```
+    GROUP#  SEQUENCE#    SIZE_MB STATUS
+---------- ---------- ---------- ----------------
+	 1         15        200 CURRENT
+	 2         14        200 INACTIVE
+	 3         13        200 INACTIVE
+```
+
 **Command 4 - Archive Mode:**
 ```bash
 docker-compose exec oracle-primary bash -c \
   "echo 'SELECT log_mode, open_mode FROM v\$database;' | \
    sqlplus -S sys/oracle@XEPDB1 as sysdba"
+```
+
+**Expected Output:**
+```
+LOG_MODE     OPEN_MODE
+------------ --------------------
+ARCHIVELOG   READ WRITE
 ```
 
 ## 🎯 Key Point (Kalimat Kunci)
@@ -487,6 +564,16 @@ docker-compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd \
   -Q "SELECT name, physical_name, size*8/1024 as size_mb, type_desc FROM sys.master_files WHERE database_id = DB_ID('NTTPlayground')"
 ```
 
+**Expected Output:**
+```
+name                                                                                                                             physical_name                                                                                                                                                                                                                                                            size_mb     type_desc
+-------------------------------------------------------------------------------------------------------------------------------- ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ ----------- ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+NTTPlayground                                                                                                                    /var/opt/mssql/data/NTTPlayground.mdf                                                                                                                                                                                                                                          8 ROWS
+NTTPlayground_log                                                                                                                /var/opt/mssql/data/NTTPlayground_log.ldf                                                                                                                                                                                                                                      8 LOG
+
+(2 rows affected)
+```
+
 **Penjelasan:**
 > "Ini menunjukkan database files di SQL Server. Ada MDF (data) dan LDF (log). Mirip dengan datafiles dan redo logs di Oracle."
 
@@ -509,6 +596,33 @@ docker-compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd \
 docker-compose exec dba-tools bash /scripts/dba-daily-tasks.sh
 ```
 
+**Expected Output (script):**
+```
+================================
+NTT Playground - DBA Daily Tasks
+================================
+
+1. Disk Usage (df -h):
+----------------------
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/vda1            1007G   22G  935G   3% /oracle-data
+
+2. Memory Usage:
+----------------------
+               total        used        free      shared  buff/cache   available
+Mem:           7.7Gi       7.0Gi       211Mi       2.5Gi       3.1Gi       640Mi
+Swap:          1.0Gi       478Mi       545Mi
+
+3. Top Processes (CPU):
+----------------------
+USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+...
+
+================================
+Monitoring complete!
+================================
+```
+
 **Atau manual:**
 ```bash
 # Masuk ke container
@@ -516,6 +630,10 @@ docker-compose exec dba-tools bash
 
 # Cek disk usage
 df -h
+
+# Expected Output:
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/vda1            1007G   22G  935G   3% /
 
 # Keluar
 exit
@@ -581,6 +699,49 @@ docker-compose exec oracle-primary bash -c \
    sqlplus -S sys/oracle@XEPDB1 as sysdba"
 ```
 
+**Expected Output:**
+```
+    EMP_ID
+----------
+EMP_NAME
+--------------------------------------------------------------------------------
+    SALARY    DEPT_ID HIRE_DATE
+---------- ---------- ------------------
+	 1
+Rafi
+   8000000	   10 15-JAN-23
+
+	 2
+Budi
+   7500000	   10 20-MAR-23
+
+    EMP_ID
+----------
+EMP_NAME
+--------------------------------------------------------------------------------
+    SALARY    DEPT_ID HIRE_DATE
+---------- ---------- ------------------
+
+	 3
+Ani
+   6500000	   20 10-FEB-23
+
+	 4
+Citra
+
+    EMP_ID
+----------
+EMP_NAME
+--------------------------------------------------------------------------------
+    SALARY    DEPT_ID HIRE_DATE
+---------- ---------- ------------------
+   9000000	   30 05-APR-23
+
+	 5
+Dedi
+   7200000	   40 12-MAY-23
+```
+
 **Penjelasan:**> "Ini menampilkan semua data employees. Ada 5 data sample."
 
 ---
@@ -590,6 +751,25 @@ docker-compose exec oracle-primary bash -c \
 docker-compose exec oracle-primary bash -c \
   "echo 'SELECT emp_name, salary FROM sys.employees WHERE salary > 7000000;' | \
    sqlplus -S sys/oracle@XEPDB1 as sysdba"
+```
+
+**Expected Output:**
+```
+EMP_NAME
+--------------------------------------------------------------------------------
+    SALARY
+----------
+Rafi
+   8000000
+
+Budi
+   7500000
+
+Citra
+   9000000
+
+Dedi
+   7200000
 ```
 
 **Penjelasan:**> "Ini filter employees dengan salary di atas 7 juta."
@@ -607,6 +787,49 @@ JOIN sys.departments d ON e.dept_id = d.dept_id
 JOIN sys.locations l ON d.location_id = l.location_id;
 EXIT;
 EOF
+```
+
+**Expected Output:**
+```
+EMP_NAME
+--------------------------------------------------------------------------------
+DEPT_NAME
+--------------------------------------------------------------------------------
+LOCATION
+--------------------------------------------------------------------------------
+Rafi
+IT Department
+Jakarta HQ
+
+Budi
+IT Department
+Jakarta HQ
+
+EMP_NAME
+--------------------------------------------------------------------------------
+DEPT_NAME
+--------------------------------------------------------------------------------
+LOCATION
+--------------------------------------------------------------------------------
+
+Ani
+HR Department
+Jakarta HQ
+
+Citra
+Sales Department
+
+EMP_NAME
+--------------------------------------------------------------------------------
+DEPT_NAME
+--------------------------------------------------------------------------------
+LOCATION
+--------------------------------------------------------------------------------
+Bandung Office
+
+Dedi
+Finance
+Jakarta HQ
 ```
 
 **Penjelasan:**> "Ini menunjukkan JOIN 3 tables - employees, departments, dan locations. Kita bisa lihat employee di department mana dan lokasi mana."
@@ -630,6 +853,29 @@ EXIT;
 EOF
 ```
 
+**Expected Output:**
+```
+DEPT_NAME
+--------------------------------------------------------------------------------
+ EMP_COUNT AVG_SALARY TOTAL_SALARY
+---------- ---------- ------------
+IT Department
+	 2    7750000	  15500000
+
+HR Department
+	 1    6500000	   6500000
+
+Sales Department
+	 1    9000000	   9000000
+
+DEPT_NAME
+--------------------------------------------------------------------------------
+ EMP_COUNT AVG_SALARY TOTAL_SALARY
+---------- ---------- ------------
+Finance
+	 1    7200000	   7200000
+```
+
 **Penjelasan:**> "Ini menunjukkan aggregate functions - COUNT, AVG, SUM per department."
 
 ---
@@ -641,6 +887,17 @@ EOF
 docker-compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd \
   -S localhost -U sa -P SqlServer2022! -C -d NTTPlayground \
   -Q "SELECT TOP 3 emp_name, salary FROM employees"
+```
+
+**Expected Output:**
+```
+emp_name                                                                                             salary
+---------------------------------------------------------------------------------------------------- --------------
+Rafi                                                                                                     8000000.00
+Budi                                                                                                     7500000.00
+Ani                                                                                                      6500000.00
+
+(3 rows affected)
 ```
 
 **Penjelasan:**> "Sama persis query-nya di SQL Server, hanya syntax sedikit beda - TOP 3 vs LIMIT/ROWNUM."
